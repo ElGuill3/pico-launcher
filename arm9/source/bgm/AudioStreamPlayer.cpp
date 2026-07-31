@@ -135,6 +135,6 @@ void AudioStreamPlayer::FillRingBlock(u32 block)
 
     _audioStream->ReadSamples(blockPtrL, blockPtrR, AUDIO_STREAM_PLAYER_BLOCK_SAMPLES);
 
-    DC_FlushRange(&blockPtrL, AUDIO_STREAM_PLAYER_BLOCK_SAMPLES * sizeof(s16));
-    DC_FlushRange(&blockPtrR, AUDIO_STREAM_PLAYER_BLOCK_SAMPLES * sizeof(s16));
+    DC_FlushRange(blockPtrL, AUDIO_STREAM_PLAYER_BLOCK_SAMPLES * sizeof(s16));
+    DC_FlushRange(blockPtrR, AUDIO_STREAM_PLAYER_BLOCK_SAMPLES * sizeof(s16));
 }

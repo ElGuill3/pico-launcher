@@ -102,6 +102,7 @@ void App::LoadTheme()
     _topBackground->LoadResources(*_theme, _subVramContext);
     _bottomBackground = _theme->CreateRomBrowserBottomBackground();
     _bottomBackground->LoadResources(*_theme, _mainVramContext);
+    _navigationSoundPlayer.Load(*_theme);
 }
 
 void App::VCountIrq()
@@ -184,6 +185,7 @@ void App::Run()
 
     MainLoop();
 
+    _navigationSoundPlayer.Stop();
     _bgmService.StopBgm();
     rtos_disableIrqMask(RTOS_IRQ_VCOUNT);
     rtos_setIrqFunc(RTOS_IRQ_VCOUNT, nullptr);
@@ -240,6 +242,7 @@ void App::MainLoop()
 
 void App::Exit()
 {
+    _navigationSoundPlayer.Stop();
     _fadeAnimator.Goto(16, 16, &md::sys::motion::easing::linear);
     _exit = true;
 }
@@ -406,12 +409,46 @@ void App::Update()
     _dialogPresenter.Update();
 
     _romBrowserBottomScreenView->Update();
+    UpdateNavigationSoundSelection();
     if (isRomBrowserVisible)
     {
         _romBrowserTopScreenView->Update();
         _romBrowserController.GetRomBrowserViewModel()->SetIconFrameCounter(
             _romBrowserController.GetRomBrowserViewModel()->GetIconFrameCounter() + 1);
     }
+}
+
+void App::UpdateNavigationSoundSelection()
+{
+    const auto& viewModel = _romBrowserController.GetRomBrowserViewModel();
+    if (!viewModel.IsValid())
+    {
+        _navigationSoundViewModel.Reset();
+        _navigationSoundSelectedItem = -1;
+        return;
+    }
+
+    if (_navigationSoundViewModel.GetPointer() != viewModel.GetPointer())
+    {
+        _navigationSoundViewModel = viewModel;
+        _navigationSoundSelectedItem = viewModel->GetSelectedItem();
+        return;
+    }
+
+    const int selectedItem = viewModel->GetSelectedItem();
+    if (selectedItem == _navigationSoundSelectedItem)
+        return;
+
+    const u32 itemCount = viewModel->GetFileInfoManager().GetItemCount();
+    const bool oldSelectionValid = _navigationSoundSelectedItem >= 0 &&
+        static_cast<u32>(_navigationSoundSelectedItem) < itemCount;
+    const bool newSelectionValid = selectedItem >= 0 && static_cast<u32>(selectedItem) < itemCount;
+    const bool navigationCommitted = !_inputRepeater.Current(InputKey::Touch) &&
+        !_dialogPresenter.IsBottomSheetVisible();
+    if (oldSelectionValid && newSelectionValid && navigationCommitted)
+        _navigationSoundPlayer.Play();
+
+    _navigationSoundSelectedItem = selectedItem;
 }
 
 void App::Draw()
