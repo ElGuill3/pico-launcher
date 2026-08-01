@@ -130,10 +130,15 @@ Blend colors are used to fake translucency. They should be set to an approximati
 ## Background music
 All themes support background music by placing DSP-ADPCM encoded `.bcstm` files in a `bgm` folder inside the theme folder. Looping is supported. When multiple `.bcstm` files are provided, the background music will be selected at random each time Pico Launcher is started.
 
-## Navigation sound
-All themes can provide an optional `navigation.wav` file in the theme folder. It is played when the selected game changes in any catalog layout. Missing or invalid files are ignored.
+## UI sounds
+All themes can provide optional UI sounds in a `sounds` folder inside the theme folder. Missing or invalid files are ignored.
 
-The WAV file must use uncompressed PCM, signed 16-bit little-endian samples, one channel (mono), and a 22050 Hz sample rate. Keep the sound as a short one-shot; 50-150 ms is recommended. The PCM data may not exceed 11,024 bytes (about 250 ms), and the complete WAV file may not exceed 16 KiB.
+| File                    | Event                                                                 | Recommended duration |
+|-------------------------|-----------------------------------------------------------------------|----------------------|
+| `sounds/navigation.wav` | The selected game changes in any catalog layout.                      | 50-150 ms            |
+| `sounds/launch.wav`     | A game launch begins; playback overlaps the existing screen fade-out. | 150-250 ms           |
+
+Both WAV files must use uncompressed PCM, signed 16-bit little-endian samples, one channel (mono), and a 22050 Hz sample rate. The PCM data in each file may not exceed 11,024 bytes (about 250 ms), and each complete WAV file may not exceed 16 KiB. These one-shot sounds share one audio channel, so a launch sound replaces any navigation sound that is still playing. Streamed `.bcstm` background music remains separate under `bgm`.
 
 ## Theme selector icon
 A theme can have an `icon.bmp` file that is shown in the theme list when selecting a theme. It must be **32×32 pixels, 4 bpp (16 colors), uncompressed `.bmp`** file, with the first palette color treated as transparent.

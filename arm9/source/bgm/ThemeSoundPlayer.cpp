@@ -6,7 +6,7 @@
 #include <../../libtwl7/include/libtwl/sound/soundChannel.h>
 #include "ipcChannels.h"
 #include "themes/ITheme.h"
-#include "NavigationSoundPlayer.h"
+#include "ThemeSoundPlayer.h"
 
 namespace
 {
@@ -29,7 +29,7 @@ bool IsChunkId(const u8* value, const char* id)
 }
 }
 
-NavigationSoundPlayer::NavigationSoundPlayer()
+ThemeSoundPlayer::ThemeSoundPlayer()
     : _soundPlayCmdList
     {
         3,
@@ -54,19 +54,19 @@ NavigationSoundPlayer::NavigationSoundPlayer()
     DC_FlushRange(&_soundStopCmdList, sizeof(_soundStopCmdList));
 }
 
-NavigationSoundPlayer::~NavigationSoundPlayer()
+ThemeSoundPlayer::~ThemeSoundPlayer()
 {
     Stop();
 }
 
-bool NavigationSoundPlayer::Load(const ITheme& theme)
+bool ThemeSoundPlayer::Load(const ITheme& theme, const TCHAR* themeRelativePath)
 {
     Stop();
     _loaded = false;
     _playbackBytes = 0;
 
     File file;
-    if (!theme.OpenThemeFile(file, "navigation.wav"))
+    if (!theme.OpenThemeFile(file, themeRelativePath))
         return false;
 
     const u64 fileSize = file.GetSize();
@@ -148,7 +148,7 @@ bool NavigationSoundPlayer::Load(const ITheme& theme)
     return true;
 }
 
-void NavigationSoundPlayer::Play()
+void ThemeSoundPlayer::Play()
 {
     if (!_loaded)
         return;
@@ -157,7 +157,7 @@ void NavigationSoundPlayer::Play()
     ipc_sendFifoMessage(IPC_CHANNEL_SOUND, reinterpret_cast<u32>(&_soundPlayCmdList));
 }
 
-void NavigationSoundPlayer::Stop()
+void ThemeSoundPlayer::Stop()
 {
     if (_loaded)
         ipc_sendFifoMessage(IPC_CHANNEL_SOUND, reinterpret_cast<u32>(&_soundStopCmdList));

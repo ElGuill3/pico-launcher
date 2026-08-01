@@ -29,7 +29,7 @@
 #include "DialogPresenter.h"
 #include "themes/ITheme.h"
 #include "animation/Animator.h"
-#include "bgm/NavigationSoundPlayer.h"
+#include "bgm/ThemeSoundPlayer.h"
 
 class alignas(32) App : public IProcess
 {
@@ -71,7 +71,8 @@ private:
     std::unique_ptr<ITheme> _theme;
     std::unique_ptr<IThemeBackground> _topBackground;
     std::unique_ptr<IThemeBackground> _bottomBackground;
-    NavigationSoundPlayer _navigationSoundPlayer;
+    ThemeSoundPlayer _navigationSoundPlayer;
+    ThemeSoundPlayer _launchSoundPlayer;
 
     IAppSettingsService& _appSettingsService;
     IBgmService& _bgmService;

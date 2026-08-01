@@ -102,7 +102,8 @@ void App::LoadTheme()
     _topBackground->LoadResources(*_theme, _subVramContext);
     _bottomBackground = _theme->CreateRomBrowserBottomBackground();
     _bottomBackground->LoadResources(*_theme, _mainVramContext);
-    _navigationSoundPlayer.Load(*_theme);
+    _navigationSoundPlayer.Load(*_theme, "sounds/navigation.wav");
+    _launchSoundPlayer.Load(*_theme, "sounds/launch.wav");
 }
 
 void App::VCountIrq()
@@ -186,6 +187,7 @@ void App::Run()
     MainLoop();
 
     _navigationSoundPlayer.Stop();
+    _launchSoundPlayer.Stop();
     _bgmService.StopBgm();
     rtos_disableIrqMask(RTOS_IRQ_VCOUNT);
     rtos_setIrqFunc(RTOS_IRQ_VCOUNT, nullptr);
@@ -194,6 +196,7 @@ void App::Run()
 void App::MainLoop()
 {
     bool fadeIn = true;
+    bool exitAudioStarted = false;
     int fadeWaitFrames = SPLASH_FRAMES;
     while (true)
     {
@@ -203,6 +206,16 @@ void App::MainLoop()
         VBlank();
         if (_exit)
         {
+            if (!exitAudioStarted)
+            {
+                _navigationSoundPlayer.Stop();
+                if (_romBrowserController.GetStateMachine().GetCurrentState() == RomBrowserState::Launching)
+                {
+                    _bgmService.StopBgm();
+                    _launchSoundPlayer.Play();
+                }
+                exitAudioStarted = true;
+            }
             bool fadeComplete = _fadeAnimator.Update();
             REG_MASTER_BRIGHT = 0x4000 | _fadeAnimator.GetValue();
             REG_MASTER_BRIGHT_SUB = 0x4000 | _fadeAnimator.GetValue();
@@ -242,7 +255,6 @@ void App::MainLoop()
 
 void App::Exit()
 {
-    _navigationSoundPlayer.Stop();
     _fadeAnimator.Goto(16, 16, &md::sys::motion::easing::linear);
     _exit = true;
 }

@@ -4,13 +4,13 @@
 
 class ITheme;
 
-class alignas(32) NavigationSoundPlayer
+class alignas(32) ThemeSoundPlayer
 {
 public:
-    NavigationSoundPlayer();
-    ~NavigationSoundPlayer();
+    ThemeSoundPlayer();
+    ~ThemeSoundPlayer();
 
-    bool Load(const ITheme& theme);
+    bool Load(const ITheme& theme, const TCHAR* themeRelativePath);
     void Play();
     void Stop();
 
