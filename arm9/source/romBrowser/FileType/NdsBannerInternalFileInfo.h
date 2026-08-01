@@ -9,6 +9,7 @@ class alignas(32) NdsBannerInternalFileInfo : public InternalFileInfo
 {
 public:
     std::unique_ptr<FileIcon> CreateGameIcon() const override;
+    bool CopyGameIconData(u8* graphics, u16* palette) const override;
     const char* GetGameCode() const override;
     const char16_t* GetGameTitle() const override;
     bool HasBanner() const { return _hasBanner; }

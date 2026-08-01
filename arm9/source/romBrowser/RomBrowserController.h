@@ -16,6 +16,14 @@
 class RomBrowserController : public IRomBrowserController
 {
 public:
+    enum class LaunchPreparationState
+    {
+        Idle,
+        Pending,
+        Ready,
+        Failed
+    };
+
     RomBrowserController(IAppSettingsService* appSettingsService,
         TaskQueueBase* ioTaskQueue, TaskQueueBase* bgTaskQueue);
 
@@ -55,6 +63,8 @@ public:
     }
 
     virtual const FileInfo& GetTriggerFileInfo() const override { return _triggerFileInfo; }
+    LaunchPreparationState GetLaunchPreparationState() const { return _launchPreparationState; }
+    void TransferToPicoLoader();
 
 private:
     IAppSettingsService* _appSettingsService;
@@ -69,6 +79,9 @@ private:
     TCHAR* _navigateFileName;
     FileInfo _triggerFileInfo;
     QueueTask<void> _navigateTask;
+    QueueTask<void> _launchTask;
+    LaunchPreparationState _launchPreparationState = LaunchPreparationState::Idle;
+    bool _launchTransferRequested = false;
     bool _saveSettingsPending = false;
     std::unique_ptr<CoverRepository> _coverRepository;
     std::unique_ptr<IconRepository> _iconRepository;
@@ -83,6 +96,6 @@ private:
     void HandleChangeDisplayModeTrigger();
     void HandleGotoSettingsScreenTrigger();
     void UpdateLastUsedFilepath();
-    void SetPicoLoaderParams() const;
+    bool SetPicoLoaderParams() const;
     void LoadCheats() const;
 };

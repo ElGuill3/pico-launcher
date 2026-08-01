@@ -7,9 +7,13 @@
 #include "RomBrowserView.h"
 #include "RomBrowserAppBarView.h"
 #include "../viewModels/RomBrowserBottomScreenViewModel.h"
+#include "LaunchVisualSnapshot.h"
 
 class IRomBrowserViewFactory;
 class VBlankTextureLoader;
+class LaunchTransitionView;
+class MaterialColorScheme;
+class IFontRepository;
 
 class RomBrowserBottomScreenView : public View
 {
@@ -43,6 +47,15 @@ public:
 
     void RomBrowserViewModelInvalidated(const VramContext& vramContext);
 
+    LaunchVisualSnapshot CaptureLaunchVisualSnapshot() const;
+    void ReleaseBrowserViewForLaunch();
+    void StartLaunchTransition(LaunchVisualSnapshot snapshot,
+        const MaterialColorScheme* materialColorScheme,
+        const IFontRepository* fontRepository,
+        const VramContext& vramContext);
+    void EndLaunchTransition();
+    bool IsLaunchTransitionComplete() const;
+
     bool IsAppBarFocused(const FocusManager& focusManager) const
     {
         return focusManager.IsFocusInside(_romBrowserAppBarView.GetPointer());
@@ -57,6 +70,7 @@ private:
     SharedPtr<RomBrowserAppBarView> _romBrowserAppBarView;
     SharedPtr<RomBrowserView> _romBrowserView;
     VBlankTextureLoader* _vblankTextureLoader;
+    SharedPtr<LaunchTransitionView> _launchTransitionView;
 
     RomBrowserBottomScreenView(
         RomBrowserBottomScreenViewModel* viewModel,

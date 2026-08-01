@@ -52,6 +52,16 @@ std::unique_ptr<FileIcon> NdsBannerInternalFileInfo::CreateGameIcon() const
         : nullptr;
 }
 
+bool NdsBannerInternalFileInfo::CopyGameIconData(u8* graphics, u16* palette) const
+{
+    if (!_hasBanner)
+        return false;
+
+    memcpy(graphics, _banner.iconGfx, sizeof(_banner.iconGfx));
+    memcpy(palette, _banner.iconPltt, sizeof(_banner.iconPltt));
+    return true;
+}
+
 const char* NdsBannerInternalFileInfo::GetGameCode() const
 {
     return _gameCode[0] != 0 ? _gameCode : nullptr;

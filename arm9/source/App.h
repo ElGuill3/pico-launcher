@@ -122,6 +122,8 @@ private:
     void HandleNavigateTrigger();
     void HandleFolderLoadDoneTrigger();
     void HandleChangeDisplayModeTrigger(RomBrowserState newState);
+    void HandleLaunchTrigger();
+    void HandleLaunchFailedTrigger();
     void UpdateNavigationSoundSelection();
 
     void MainLoop();

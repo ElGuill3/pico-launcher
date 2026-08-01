@@ -107,6 +107,18 @@ void RomBrowserController::Update()
             break;
         }
         case RomBrowserState::Launching:
+        {
+            if (_launchTask.IsValid() && _launchTask.GetTask().IsCompleted())
+            {
+                _launchPreparationState = _launchTask.GetTask().IsCompletedSuccessfully()
+                    ? LaunchPreparationState::Ready
+                    : LaunchPreparationState::Failed;
+                _launchTask.Dispose();
+                if (_launchPreparationState == LaunchPreparationState::Failed)
+                    _stateMachine.Fire(RomBrowserStateTrigger::LaunchFailed);
+            }
+            break;
+        }
         default:
         {
             break;
@@ -208,10 +220,18 @@ void RomBrowserController::HandleFolderLoadDoneTrigger()
 void RomBrowserController::HandleLaunchTrigger()
 {
     LOG_DEBUG("RomBrowserStateTrigger::Launch\n");
-    _ioTaskQueue->Enqueue([this] (const vu8& cancelRequested)
+    _launchPreparationState = LaunchPreparationState::Pending;
+    _launchTransferRequested = false;
+    _launchTask = _ioTaskQueue->Enqueue([this] (const vu8& cancelRequested)
     {
+        if (cancelRequested)
+            return TaskResult<void>::Canceled();
         UpdateLastUsedFilepath();
-        SetPicoLoaderParams();
+        if (!SetPicoLoaderParams())
+        {
+            LOG_ERROR("Failed to set launch parameters.\n");
+            return TaskResult<void>::Failed();
+        }
         LoadCheats();
         return TaskResult<void>::Completed();
     });
@@ -241,20 +261,22 @@ void RomBrowserController::UpdateLastUsedFilepath()
     _appSettingsService->Save();
 }
 
-void RomBrowserController::SetPicoLoaderParams() const
+bool RomBrowserController::SetPicoLoaderParams() const
 {
     auto loadParams = pload_getLoadParams();
     loadParams->savePath[0] = 0;
     loadParams->arguments[0] = 0;
     loadParams->argumentsLength = 0;
-    if (_triggerFileInfo.GetFileType()->TrySetLaunchParameters(loadParams, _navigatePath))
-    {
-        gProcessManager.Goto<PicoLoaderProcess>();
-    }
-    else
-    {
-        LOG_FATAL("Failed to set launch parameters.\n");
-    }
+    return _triggerFileInfo.GetFileType()->TrySetLaunchParameters(loadParams, _navigatePath);
+}
+
+void RomBrowserController::TransferToPicoLoader()
+{
+    if (_launchPreparationState != LaunchPreparationState::Ready || _launchTransferRequested)
+        return;
+
+    _launchTransferRequested = true;
+    gProcessManager.Goto<PicoLoaderProcess>();
 }
 
 void RomBrowserController::LoadCheats() const

@@ -21,6 +21,8 @@ public:
     /// @return A unique pointer to the created icon when successful, or \c nullptr otherwise.
     virtual std::unique_ptr<FileIcon> CreateGameIcon() const { return nullptr; }
 
+    virtual bool CopyGameIconData(u8* graphics, u16* palette) const { return false; }
+
     /// @brief Creates a cover based on the internal file information.
     /// @return A unique pointer to the created cover when successful, or \c nullptr otherwise.
     virtual FileCover* CreateGameCover() const { return nullptr; }

@@ -1,4 +1,5 @@
 #pragma once
+#include <cstring>
 #include <memory>
 #include "InternalFileInfo.h"
 #include "BmpFileIcon.h"
@@ -21,6 +22,13 @@ public:
     std::unique_ptr<FileIcon> CreateGameIcon() const override
     {
         return std::make_unique<BmpFileIcon>(_iconData);
+    }
+
+    bool CopyGameIconData(u8* graphics, u16* palette) const override
+    {
+        memcpy(graphics, _iconData->GetGfx(), BmpFileIconData::GfxSize);
+        memcpy(palette, _iconData->GetPltt(), sizeof(u16) * 16);
+        return true;
     }
 
 private:

@@ -9,6 +9,8 @@
 #include "listIcon.h"
 #include "gui/IVramManager.h"
 #include "gui/input/InputProvider.h"
+#include "core/StringUtil.h"
+#include "LaunchTransitionView.h"
 #include "RomBrowserBottomScreenView.h"
 
 RomBrowserBottomScreenView::RomBrowserBottomScreenView(
@@ -35,6 +37,11 @@ void RomBrowserBottomScreenView::InitVram(const VramContext& vramContext)
 
 void RomBrowserBottomScreenView::Update()
 {
+    if (_launchTransitionView)
+    {
+        _launchTransitionView->Update();
+        return;
+    }
     _romBrowserAppBarView->Update();
     if (_romBrowserView && _viewModel->IsRomBrowserVisible())
     {
@@ -44,6 +51,11 @@ void RomBrowserBottomScreenView::Update()
 
 void RomBrowserBottomScreenView::Draw(GraphicsContext& graphicsContext)
 {
+    if (_launchTransitionView)
+    {
+        _launchTransitionView->Draw(graphicsContext);
+        return;
+    }
     _romBrowserAppBarView->Draw(graphicsContext);
     if (_romBrowserView && _viewModel->IsRomBrowserVisible())
     {
@@ -53,11 +65,69 @@ void RomBrowserBottomScreenView::Draw(GraphicsContext& graphicsContext)
 
 void RomBrowserBottomScreenView::VBlank()
 {
+    if (_launchTransitionView)
+    {
+        _launchTransitionView->VBlank();
+        return;
+    }
     _romBrowserAppBarView->VBlank();
     if (_romBrowserView && _viewModel->IsRomBrowserVisible())
     {
         _romBrowserView->VBlank();
     }
+}
+
+LaunchVisualSnapshot RomBrowserBottomScreenView::CaptureLaunchVisualSnapshot() const
+{
+    LaunchVisualSnapshot snapshot;
+    const auto& romBrowserViewModel = _viewModel->GetRomBrowserViewModel();
+    if (!romBrowserViewModel)
+        return snapshot;
+
+    const int selectedItem = romBrowserViewModel->GetSelectedItem();
+    auto& fileInfoManager = romBrowserViewModel->GetFileInfoManager();
+    if (selectedItem < 0 || static_cast<u32>(selectedItem) >= fileInfoManager.GetItemCount())
+        return snapshot;
+
+    const auto& item = fileInfoManager.GetItem(selectedItem);
+    StringUtil::Copy(snapshot.fileName, item.GetFileName(), LaunchVisualSnapshot::FileNameLength);
+    snapshot.isNds = strcmp(item.GetFileType()->GetShortName(), "nds") == 0;
+    snapshot.cover = fileInfoManager.GetFileCover(selectedItem);
+
+    const auto info = fileInfoManager.GetInternalFileInfo(selectedItem);
+    const char16_t* title = info ? info->GetGameTitle() : nullptr;
+    if (title && title[0] != 0)
+        StringUtil::Copy(snapshot.title, title, LaunchVisualSnapshot::TitleLength);
+    else
+        StringUtil::Copy(snapshot.title, snapshot.fileName, LaunchVisualSnapshot::TitleLength);
+
+    snapshot.hasIcon = info && info->CopyGameIconData(snapshot.iconGraphics, snapshot.iconPalette);
+    return snapshot;
+}
+
+void RomBrowserBottomScreenView::StartLaunchTransition(LaunchVisualSnapshot snapshot,
+    const MaterialColorScheme* materialColorScheme, const IFontRepository* fontRepository,
+    const VramContext& vramContext)
+{
+    _launchTransitionView = LaunchTransitionView::CreateShared(std::move(snapshot),
+        materialColorScheme, fontRepository, _themeFileIconFactory, _vblankTextureLoader);
+    _launchTransitionView->SetParent(this);
+    _launchTransitionView->InitVram(vramContext);
+}
+
+void RomBrowserBottomScreenView::ReleaseBrowserViewForLaunch()
+{
+    _romBrowserView.Reset();
+}
+
+void RomBrowserBottomScreenView::EndLaunchTransition()
+{
+    _launchTransitionView.Reset();
+}
+
+bool RomBrowserBottomScreenView::IsLaunchTransitionComplete() const
+{
+    return _launchTransitionView && _launchTransitionView->IsMinimumComplete();
 }
 
 SharedPtr<View> RomBrowserBottomScreenView::MoveFocus(const SharedPtr<View>& currentFocus, FocusMoveDirection direction, View* source)

@@ -209,11 +209,6 @@ void App::MainLoop()
             if (!exitAudioStarted)
             {
                 _navigationSoundPlayer.Stop();
-                if (_romBrowserController.GetStateMachine().GetCurrentState() == RomBrowserState::Launching)
-                {
-                    _bgmService.StopBgm();
-                    _launchSoundPlayer.Play();
-                }
                 exitAudioStarted = true;
             }
             bool fadeComplete = _fadeAnimator.Update();
@@ -264,9 +259,18 @@ void App::HandleTrigger(RomBrowserStateTrigger trigger, RomBrowserState newState
     switch (trigger)
     {
         case RomBrowserStateTrigger::None:
-        case RomBrowserStateTrigger::Launch:
         case RomBrowserStateTrigger::GotoSettingsScreen:
         {
+            break;
+        }
+        case RomBrowserStateTrigger::Launch:
+        {
+            HandleLaunchTrigger();
+            break;
+        }
+        case RomBrowserStateTrigger::LaunchFailed:
+        {
+            HandleLaunchFailedTrigger();
             break;
         }
         case RomBrowserStateTrigger::ShowGameInfo:
@@ -390,6 +394,42 @@ void App::HandleChangeDisplayModeTrigger(RomBrowserState newState)
         _romBrowserBottomScreenView->Focus(_focusManager);
 }
 
+void App::HandleLaunchTrigger()
+{
+    _focusManager.Unfocus();
+    auto snapshot = _romBrowserBottomScreenView->CaptureLaunchVisualSnapshot();
+    _romBrowserTopScreenView.Reset();
+    _navigationSoundPlayer.Stop();
+    _bgmService.StopBgm();
+    _launchSoundPlayer.Play();
+
+    _romBrowserBottomScreenView->ReleaseBrowserViewForLaunch();
+    RestoreVramState(_vramStateAfterMakeBottomScreenView);
+    _romBrowserBottomScreenView->StartLaunchTransition(std::move(snapshot),
+        &_theme->GetMaterialColorScheme(), _theme->GetFontRepository(), _mainVramContext);
+}
+
+void App::HandleLaunchFailedTrigger()
+{
+    _launchSoundPlayer.Stop();
+    _romBrowserBottomScreenView->EndLaunchTransition();
+    RestoreVramState(_vramStateAfterMakeBottomScreenView);
+
+    auto displayMode = RomBrowserDisplayModeFactory().GetRomBrowserDisplayMode(
+        _romBrowserController.GetRomBrowserDisplaySettings().layout);
+    _romBrowserTopScreenView = RomBrowserTopScreenView::CreateShared(
+        _romBrowserController.GetRomBrowserViewModel(), displayMode,
+        _theme->GetThemeFileIconFactory(), _theme->GetRomBrowserViewFactory());
+    _romBrowserTopScreenView->InitVram(_subVramContext);
+    _romBrowserBottomScreenView->RomBrowserViewModelInvalidated(_mainVramContext);
+    _romBrowserBottomScreenView->Focus(_focusManager);
+    _ioTaskQueue.Enqueue([this] (const vu8& cancelRequested)
+    {
+        _bgmService.StartBgmFromConfig();
+        return TaskResult<void>::Completed();
+    });
+}
+
 void App::Update()
 {
     const auto& stateMachine = _romBrowserController.GetStateMachine();
@@ -421,8 +461,14 @@ void App::Update()
     _dialogPresenter.Update();
 
     _romBrowserBottomScreenView->Update();
+    if (curState == RomBrowserState::Launching &&
+        _romBrowserController.GetLaunchPreparationState() == RomBrowserController::LaunchPreparationState::Ready &&
+        _romBrowserBottomScreenView->IsLaunchTransitionComplete())
+    {
+        _romBrowserController.TransferToPicoLoader();
+    }
     UpdateNavigationSoundSelection();
-    if (isRomBrowserVisible)
+    if (isRomBrowserVisible && _romBrowserTopScreenView)
     {
         _romBrowserTopScreenView->Update();
         _romBrowserController.GetRomBrowserViewModel()->SetIconFrameCounter(
@@ -495,7 +541,7 @@ void App::Draw()
     if (_bottomBackground)
         _bottomBackground->Draw(mainGraphicsContext);
 
-    if (!_changeDisplayMode && _romBrowserBottomScreenViewModel.IsRomBrowserVisible())
+    if (!_changeDisplayMode && _romBrowserBottomScreenViewModel.IsRomBrowserVisible() && _romBrowserTopScreenView)
     {
         _romBrowserTopScreenView->Draw(subGraphicsContext);
     }
@@ -538,7 +584,7 @@ void App::VBlank()
 
     _dialogPresenter.VBlank();
 
-    if (_romBrowserBottomScreenViewModel.IsRomBrowserVisible())
+    if (_romBrowserBottomScreenViewModel.IsRomBrowserVisible() && _romBrowserTopScreenView)
     {
         _romBrowserTopScreenView->VBlank();
     }
