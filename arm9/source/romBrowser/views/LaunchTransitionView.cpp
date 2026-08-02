@@ -74,11 +74,13 @@ void DrawSolidTrapezoid(GraphicsContext& graphicsContext, const Rgb<8, 8, 8>& co
 
 LaunchTransitionView::LaunchTransitionView(LaunchVisualSnapshot snapshot,
     const MaterialColorScheme* materialColorScheme,
+    const LaunchTransitionStyle& launchTransitionStyle,
     const IFontRepository* fontRepository,
     const IThemeFileIconFactory* themeFileIconFactory,
     VBlankTextureLoader* vblankTextureLoader)
     : _snapshot(std::move(snapshot))
     , _materialColorScheme(materialColorScheme)
+    , _launchTransitionStyle(launchTransitionStyle)
     , _themeFileIconFactory(themeFileIconFactory)
     , _vblankTextureLoader(vblankTextureLoader)
     , _titleLabel(Label2DView::CreateShared(192, 16, LaunchVisualSnapshot::TitleLength - 1,
@@ -183,13 +185,15 @@ void LaunchTransitionView::DrawCover(GraphicsContext& graphicsContext, int progr
     if (!_snapshot.cover || _coverLoadRequest.GetState() != VBlankTextureLoadRequestState::LoadComplete)
         return;
 
-    const int inverse = LaunchTransitionTimeline::ProgressMax - progress;
-    const int left = 75 * inverse / LaunchTransitionTimeline::ProgressMax;
+    const int left = LaunchTransitionTimeline::CoverLeft(
+        progress, _launchTransitionStyle.GetCoverStartScalePercent());
     const int right = 256 - left;
-    const int top = 48 * inverse / LaunchTransitionTimeline::ProgressMax;
+    const int top = LaunchTransitionTimeline::CoverTop(
+        progress, _launchTransitionStyle.GetCoverStartScalePercent());
     const int bottom = 192 - top;
     const int textureTop = 8 * progress / LaunchTransitionTimeline::ProgressMax;
-    const int alpha = LaunchTransitionTimeline::CoverAlpha(progress);
+    const int alpha = LaunchTransitionTimeline::CoverAlpha(
+        progress, _launchTransitionStyle.GetCoverFinalAlpha());
 
     Gx::MtxIdentity();
     Gx::TexImageParam(_coverTexVramOffset >> 3, false, true, false, true,
@@ -215,7 +219,8 @@ void LaunchTransitionView::DrawCover(GraphicsContext& graphicsContext, int progr
 
 void LaunchTransitionView::DrawScrimAndProgress(GraphicsContext& graphicsContext, int progress) const
 {
-    const int scrimAlpha = LaunchTransitionTimeline::ScrimAlpha(progress);
+    const int scrimAlpha = LaunchTransitionTimeline::ScrimAlpha(
+        progress, _launchTransitionStyle.GetScrimFinalAlpha());
     DrawSolidQuad(graphicsContext, _materialColorScheme->scrim, scrimAlpha, 61, 0, 0, 256, 192);
 
     if (!IsMinimumComplete())

@@ -14,6 +14,7 @@ class VBlankTextureLoader;
 class LaunchTransitionView;
 class MaterialColorScheme;
 class IFontRepository;
+class LaunchTransitionStyle;
 
 class RomBrowserBottomScreenView : public View
 {
@@ -51,6 +52,7 @@ public:
     void ReleaseBrowserViewForLaunch();
     void StartLaunchTransition(LaunchVisualSnapshot snapshot,
         const MaterialColorScheme* materialColorScheme,
+        const LaunchTransitionStyle& launchTransitionStyle,
         const IFontRepository* fontRepository,
         const VramContext& vramContext);
     void EndLaunchTransition();

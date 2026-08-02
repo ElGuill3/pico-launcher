@@ -14,7 +14,8 @@
 class CustomTheme : public Theme
 {
 public:
-    CustomTheme(const TCHAR* folderName, const Rgb<8, 8, 8>& primaryColor, bool darkMode);
+    CustomTheme(const TCHAR* folderName, const Rgb<8, 8, 8>& primaryColor, bool darkMode,
+        const LaunchTransitionStyle& launchTransitionStyle);
 
     const IFontRepository* GetFontRepository() const override
     {

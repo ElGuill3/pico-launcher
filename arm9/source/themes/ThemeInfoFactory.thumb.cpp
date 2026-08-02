@@ -20,6 +20,10 @@
 #define KEY_COLOR_G         "g"
 #define KEY_COLOR_B         "b"
 #define KEY_DARK_THEME      "darkTheme"
+#define KEY_LAUNCH_TRANSITION                   "launchTransition"
+#define KEY_COVER_START_SCALE_PERCENT           "coverStartScalePercent"
+#define KEY_COVER_FINAL_ALPHA                   "coverFinalAlpha"
+#define KEY_SCRIM_FINAL_ALPHA                   "scrimFinalAlpha"
 
 static bool tryParseThemeType(const char* themeTypeString, ThemeType& themeType)
 {
@@ -50,6 +54,31 @@ static Rgb<8, 8, 8> parseColor(const JsonObjectConst& json, const Rgb<8, 8, 8>& 
     );
 }
 
+static int parseIntegerInRange(const JsonVariantConst& json, int defaultValue, int minValue, int maxValue)
+{
+    if (!json.is<int>())
+        return defaultValue;
+
+    const int value = json.as<int>();
+    return value >= minValue && value <= maxValue ? value : defaultValue;
+}
+
+static LaunchTransitionStyle parseLaunchTransitionStyle(const JsonObjectConst& json)
+{
+    return LaunchTransitionStyle(
+        parseIntegerInRange(json[KEY_COVER_START_SCALE_PERCENT],
+            LaunchTransitionStyle::DefaultCoverStartScalePercent,
+            LaunchTransitionStyle::MinCoverStartScalePercent,
+            LaunchTransitionStyle::MaxCoverStartScalePercent),
+        parseIntegerInRange(json[KEY_COVER_FINAL_ALPHA],
+            LaunchTransitionStyle::DefaultCoverFinalAlpha,
+            LaunchTransitionStyle::MinAlpha, LaunchTransitionStyle::MaxAlpha),
+        parseIntegerInRange(json[KEY_SCRIM_FINAL_ALPHA],
+            LaunchTransitionStyle::DefaultScrimFinalAlpha,
+            LaunchTransitionStyle::MinAlpha, LaunchTransitionStyle::MaxAlpha)
+    );
+}
+
 static std::unique_ptr<ThemeInfo> fromJson(const TCHAR* folderName, const JsonDocument& json)
 {
     ThemeType themeType;
@@ -64,7 +93,8 @@ static std::unique_ptr<ThemeInfo> fromJson(const TCHAR* folderName, const JsonDo
         json[KEY_DESCRIPTION] | "",
         json[KEY_AUTHOR] | "",
         parseColor(json[KEY_PRIMARY_COLOR], Rgb<8, 8, 8>(0xFF, 0xFF, 0xFF)),
-        json[KEY_DARK_THEME] | false
+        json[KEY_DARK_THEME] | false,
+        parseLaunchTransitionStyle(json[KEY_LAUNCH_TRANSITION])
     );
 }
 

@@ -3,8 +3,9 @@
 #include "material/MaterialColorSchemeFactory.h"
 #include "Theme.h"
 
-Theme::Theme(const TCHAR* folderName, const Rgb<8, 8, 8>& primaryColor, bool darkMode)
-    : _folderName(folderName)
+Theme::Theme(const TCHAR* folderName, const Rgb<8, 8, 8>& primaryColor, bool darkMode,
+    const LaunchTransitionStyle& launchTransitionStyle)
+    : _folderName(folderName), _launchTransitionStyle(launchTransitionStyle)
 {
     MaterialColorSchemeFactory::FromPrimaryColor(primaryColor, darkMode, _materialColorScheme);
 }

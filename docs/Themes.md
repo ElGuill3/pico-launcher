@@ -10,6 +10,7 @@ Each theme has a `theme.json` file with information about the theme.
 - **author** - Author of the theme.
 - **primaryColor** - Material Design 3 primary color to use. `r`, `g` and `b` are provided in range 0-255.
 - **darkTheme** - When `true`, a dark Material Design 3 palette will be used.
+- **launchTransition** - Optional launch transition styling shared by material and custom themes. Omit the object or any field to preserve the defaults: `coverStartScalePercent` is `100`, `coverFinalAlpha` is `12`, and `scrimFinalAlpha` is `14`. The scale must be an integer from `1` to `200`; alpha values must be integers from `0` to `31`. A field with the wrong JSON type or an out-of-range value independently falls back to its default.
 
 ### Example
 ```json
@@ -23,9 +24,16 @@ Each theme has a `theme.json` file with information about the theme.
         "g": 143,
         "b": 237
     },
-    "darkTheme": true
+    "darkTheme": true,
+    "launchTransition": {
+        "coverStartScalePercent": 100,
+        "coverFinalAlpha": 12,
+        "scrimFinalAlpha": 14
+    }
 }
 ```
+
+Existing themes do not need to add `launchTransition`; omission preserves the current launch animation exactly. Unknown fields are ignored.
 
 ## Material type
 ![Horizontal display mode with custom theme](images/Horizontal.png)

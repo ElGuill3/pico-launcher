@@ -179,8 +179,9 @@ static CustomThemeInfo parseCustomThemeInfo(const JsonDocument& json)
     };
 }
 
-CustomTheme::CustomTheme(const TCHAR* folderName, const Rgb<8, 8, 8>& primaryColor, bool darkMode)
-    : Theme(folderName, primaryColor, darkMode)
+CustomTheme::CustomTheme(const TCHAR* folderName, const Rgb<8, 8, 8>& primaryColor, bool darkMode,
+    const LaunchTransitionStyle& launchTransitionStyle)
+    : Theme(folderName, primaryColor, darkMode, launchTransitionStyle)
     , _customThemeInfo(sDefaultCustomThemeInfo)
     , _romBrowserViewFactory(&_customThemeInfo, &_materialColorScheme, &_fontRepository)
     , _themeFileIconFactory(&_materialColorScheme, &_fontRepository) { }

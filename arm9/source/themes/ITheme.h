@@ -5,6 +5,7 @@
 #include "IFontRepository.h"
 #include "background/IThemeBackground.h"
 #include "material/MaterialColorScheme.h"
+#include "LaunchTransitionStyle.h"
 #include "gui/font/nitroFont2.h"
 #include "fat/File.h"
 
@@ -27,6 +28,7 @@ public:
     virtual bool OpenThemeFile(File& file, const TCHAR* subPath) const = 0;
 
     virtual const MaterialColorScheme& GetMaterialColorScheme() const = 0;
+    virtual const LaunchTransitionStyle& GetLaunchTransitionStyle() const = 0;
 };
 
 inline ITheme::~ITheme() { }

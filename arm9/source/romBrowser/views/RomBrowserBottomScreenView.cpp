@@ -112,11 +112,12 @@ LaunchVisualSnapshot RomBrowserBottomScreenView::CaptureLaunchVisualSnapshot() c
 }
 
 void RomBrowserBottomScreenView::StartLaunchTransition(LaunchVisualSnapshot snapshot,
-    const MaterialColorScheme* materialColorScheme, const IFontRepository* fontRepository,
-    const VramContext& vramContext)
+    const MaterialColorScheme* materialColorScheme, const LaunchTransitionStyle& launchTransitionStyle,
+    const IFontRepository* fontRepository, const VramContext& vramContext)
 {
     _launchTransitionView = LaunchTransitionView::CreateShared(std::move(snapshot),
-        materialColorScheme, fontRepository, _themeFileIconFactory, _vblankTextureLoader);
+        materialColorScheme, launchTransitionStyle, fontRepository,
+        _themeFileIconFactory, _vblankTextureLoader);
     _launchTransitionView->SetParent(this);
     _launchTransitionView->InitVram(vramContext);
 }

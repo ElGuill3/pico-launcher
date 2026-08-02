@@ -406,7 +406,8 @@ void App::HandleLaunchTrigger()
     _romBrowserBottomScreenView->ReleaseBrowserViewForLaunch();
     RestoreVramState(_vramStateAfterMakeBottomScreenView);
     _romBrowserBottomScreenView->StartLaunchTransition(std::move(snapshot),
-        &_theme->GetMaterialColorScheme(), _theme->GetFontRepository(), _mainVramContext);
+        &_theme->GetMaterialColorScheme(), _theme->GetLaunchTransitionStyle(),
+        _theme->GetFontRepository(), _mainVramContext);
 }
 
 void App::HandleLaunchFailedTrigger()

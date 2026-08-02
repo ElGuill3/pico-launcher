@@ -4,6 +4,7 @@
 #include "gui/views/Label2DView.h"
 #include "gui/VBlankTextureLoader.h"
 #include "themes/material/MaterialColorScheme.h"
+#include "themes/LaunchTransitionStyle.h"
 #include "../FileType/FileIcon.h"
 #include "LaunchVisualSnapshot.h"
 
@@ -28,6 +29,7 @@ public:
 private:
     LaunchVisualSnapshot _snapshot;
     const MaterialColorScheme* _materialColorScheme;
+    LaunchTransitionStyle _launchTransitionStyle;
     const IThemeFileIconFactory* _themeFileIconFactory;
     VBlankTextureLoader* _vblankTextureLoader;
     SharedPtr<Label2DView> _titleLabel;
@@ -43,6 +45,7 @@ private:
 
     LaunchTransitionView(LaunchVisualSnapshot snapshot,
         const MaterialColorScheme* materialColorScheme,
+        const LaunchTransitionStyle& launchTransitionStyle,
         const IFontRepository* fontRepository,
         const IThemeFileIconFactory* themeFileIconFactory,
         VBlankTextureLoader* vblankTextureLoader);
