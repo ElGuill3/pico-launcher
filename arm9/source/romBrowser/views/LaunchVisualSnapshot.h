@@ -1,6 +1,8 @@
 #pragma once
+#include <memory>
 #include "core/SharedPtr.h"
 #include "../FileType/FileCover.h"
+#include "../FileType/Nds/ndsBanner.h"
 
 struct LaunchVisualSnapshot
 {
@@ -10,6 +12,7 @@ struct LaunchVisualSnapshot
     static constexpr u32 FileNameLength = 256;
 
     SharedPtr<FileCover> cover;
+    std::unique_ptr<nds_banner_t> ndsBanner;
     alignas(32) u8 iconGraphics[IconGraphicsSize] = {};
     alignas(32) u16 iconPalette[IconPaletteSize] = {};
     char16_t title[TitleLength] = {};

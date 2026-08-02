@@ -11,6 +11,7 @@
 #include "gui/palette/DirectPalette.h"
 #include "themes/IFontRepository.h"
 #include "themes/FontType.h"
+#include "../FileType/Nds/NdsFileIcon.h"
 #include "../Theme/IThemeFileIconFactory.h"
 #include "LaunchTransitionTimeline.h"
 #include "LaunchTransitionView.h"
@@ -117,7 +118,14 @@ void LaunchTransitionView::InitVram(const VramContext& vramContext)
     {
         _iconVramOffset = objVramManager->Alloc(FILE_ICON_VRAM_SIZE);
         _iconVramAddress = objVramManager->GetVramAddress(_iconVramOffset);
-        if (_snapshot.hasIcon)
+        if (_snapshot.ndsBanner)
+        {
+            DC_FlushRange(_snapshot.ndsBanner.get(), sizeof(*_snapshot.ndsBanner));
+            _ndsIcon = std::make_unique<NdsFileIcon>(_snapshot.ndsBanner.get());
+            _ndsIcon->SetVramAddress(_iconVramAddress, _iconVramOffset);
+            _ndsIcon->UploadGraphics();
+        }
+        else if (_snapshot.hasIcon)
         {
             DC_FlushRange(_snapshot.iconGraphics, LaunchVisualSnapshot::IconGraphicsSize);
             dma_ntrCopy32(3, _snapshot.iconGraphics, _iconVramAddress,
@@ -144,6 +152,8 @@ void LaunchTransitionView::Update()
     _transformAnimator.Update();
     _frame++;
     _titleLabel->Update();
+    if (_ndsIcon && IsMinimumComplete())
+        _ndsIcon->Update();
     if (_fallbackIcon)
         _fallbackIcon->Update();
 }
@@ -234,7 +244,12 @@ void LaunchTransitionView::DrawIcon(GraphicsContext& graphicsContext)
 {
     constexpr int iconX = 112;
     constexpr int iconY = 48;
-    if (_snapshot.hasIcon && _iconVramAddress)
+    if (_ndsIcon)
+    {
+        _ndsIcon->SetPosition(iconX, iconY);
+        _ndsIcon->Draw(graphicsContext, _materialColorScheme->scrim);
+    }
+    else if (_snapshot.hasIcon && _iconVramAddress)
     {
         const u32 paletteRow = graphicsContext.GetPaletteManager().AllocRow(
             DirectPalette(_snapshot.iconPalette), iconY, iconY + 32);

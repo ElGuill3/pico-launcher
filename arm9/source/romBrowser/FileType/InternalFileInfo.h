@@ -23,6 +23,9 @@ public:
 
     virtual bool CopyGameIconData(u8* graphics, u16* palette) const { return false; }
 
+    /// @brief Copies the complete NDS banner when this is a native banner icon.
+    virtual bool CopyGameBanner(struct nds_banner_t* banner) const { return false; }
+
     /// @brief Creates a cover based on the internal file information.
     /// @return A unique pointer to the created cover when successful, or \c nullptr otherwise.
     virtual FileCover* CreateGameCover() const { return nullptr; }

@@ -7,6 +7,9 @@
 #include "gui/palette/DirectPalette.h"
 #include "NdsFileIcon.h"
 
+static_assert(FILE_ICON_VRAM_SIZE >= 2 * NDS_BANNER_ICON_SIZE,
+    "Animated NDS icons require two OBJ VRAM slots");
+
 static uint16_t sCrc16Table[] =
 {
     0x0000, 0xC0C1, 0xC181, 0x0140, 0xC301, 0x03C0, 0x0280, 0xC241, 0xC601, 0x06C0, 0x0780, 0xC741, 0x0500,
@@ -46,13 +49,13 @@ NdsFileIcon::NdsFileIcon(const nds_banner_t* banner)
     : _banner(banner), _animTokenIdx(0), _lastAnimToken(0)
     , _animLength(0), _loop(false)
 {
-    _animated = _banner->header.version >= NDS_BANNER_VERSION_103
-             && _banner->animation.animTokens[0].duration != 0
+    _animated = _banner != nullptr
+             && _banner->header.version >= NDS_BANNER_VERSION_103
              && getCrc16(&_banner->animation, sizeof(_banner->animation)) == _banner->header.version103AnimCrc;
     if (_animated)
     {
         _lastAnimToken = NDS_BANNER_ANIM_TOKEN_COUNT - 1;
-        int length = 0;
+        u32 length = 0;
         _loop = true;
         for (int i = 0; i < NDS_BANNER_ANIM_TOKEN_COUNT; i++)
         {
@@ -60,17 +63,31 @@ NdsFileIcon::NdsFileIcon(const nds_banner_t* banner)
             const auto& token = _banner->animation.animTokens[i];
             if (token.duration == NDS_BANNER_ANIM_DURATION_CONTROL_FRAME)
             {
-                _loop = token.control != NDS_BANNER_ANIM_CONTROL_STOP;
+                if (i == 0 || (token.control != NDS_BANNER_ANIM_CONTROL_LOOP
+                    && token.control != NDS_BANNER_ANIM_CONTROL_STOP))
+                {
+                    _animated = false;
+                    break;
+                }
+
+                _loop = token.control == NDS_BANNER_ANIM_CONTROL_LOOP;
                 _lastAnimToken = i - 1;
                 break;
             }
-            else
+
+            if (token.gfxIdx >= NDS_BANNER_ANIM_ICON_COUNT
+                || token.plttIdx >= NDS_BANNER_ANIM_PALETTE_COUNT)
             {
-                length += token.duration;
+                _animated = false;
+                break;
             }
+
+            length += token.duration;
         }
         _animLength = length;
-        _tokenStartTimes[NDS_BANNER_ANIM_TOKEN_COUNT] = _animLength;
+        _tokenStartTimes[_lastAnimToken + 1] = _animLength;
+        if (_animLength == 0)
+            _animated = false;
     }
 }
 
@@ -96,40 +113,27 @@ void NdsFileIcon::Update()
         return;
     }
 
-    _frame %= _animLength;
-
-    if ((!_loop && _frame >= _animLength) || _lastAnimToken == 0)
+    if (!_loop && _frame >= _animLength)
     {
         _animTokenIdx = _lastAnimToken;
+        return;
     }
-    else
+
+    if (_loop)
+        _frame %= _animLength;
+
+    _animTokenIdx = _lastAnimToken;
+    for (u32 i = 0; i <= _lastAnimToken; i++)
     {
-        u32 start = 0;
-        u32 end = _lastAnimToken;
-
-        while (start <= end)
+        if (_frame < _tokenStartTimes[i + 1])
         {
-            const u32 mid = (start + end) >> 1;
-            u32 midTime = _tokenStartTimes[mid];
-            if (midTime <= _frame && _frame < _tokenStartTimes[mid + 1])
-            {
-                start = mid;
-                break;
-            }
-            else if (_frame < midTime)
-            {
-                end = mid - 1;
-            }
-            else
-            {
-                start = mid + 1;
-            }
+            _animTokenIdx = i;
+            break;
         }
-
-        _animTokenIdx = start;
     }
 
-    if (++_frame == _animLength)
+    _frame++;
+    if (_loop && _frame == _animLength)
     {
         _frame = 0;
     }

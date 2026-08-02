@@ -19,7 +19,7 @@ private:
     int _animTokenIdx;
     u32 _lastAnimToken;
     u32 _animLength;
-    u16 _tokenStartTimes[65];
+    u32 _tokenStartTimes[NDS_BANNER_ANIM_TOKEN_COUNT + 1];
     bool _loop;
 
     int _currentVramSlot = 0;

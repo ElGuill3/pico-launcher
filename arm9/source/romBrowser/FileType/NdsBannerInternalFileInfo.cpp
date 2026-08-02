@@ -62,6 +62,15 @@ bool NdsBannerInternalFileInfo::CopyGameIconData(u8* graphics, u16* palette) con
     return true;
 }
 
+bool NdsBannerInternalFileInfo::CopyGameBanner(nds_banner_t* banner) const
+{
+    if (!_hasBanner || banner == nullptr)
+        return false;
+
+    memcpy(banner, &_banner, sizeof(*banner));
+    return true;
+}
+
 const char* NdsBannerInternalFileInfo::GetGameCode() const
 {
     return _gameCode[0] != 0 ? _gameCode : nullptr;

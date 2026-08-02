@@ -31,6 +31,7 @@ private:
     const IThemeFileIconFactory* _themeFileIconFactory;
     VBlankTextureLoader* _vblankTextureLoader;
     SharedPtr<Label2DView> _titleLabel;
+    std::unique_ptr<FileIcon> _ndsIcon;
     std::unique_ptr<FileIcon> _fallbackIcon;
     Animator<int> _transformAnimator;
     VBlankTextureLoadRequest _coverLoadRequest;

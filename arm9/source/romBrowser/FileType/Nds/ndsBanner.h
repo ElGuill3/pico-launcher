@@ -47,15 +47,17 @@ typedef struct
 
 #define NDS_BANNER_ANIM_TOKEN_COUNT     64
 #define NDS_BANNER_ICON_SIZE            512
+#define NDS_BANNER_ANIM_ICON_COUNT      8
+#define NDS_BANNER_ANIM_PALETTE_COUNT   8
 
 typedef struct
 {
-    u8 iconGfx[8][NDS_BANNER_ICON_SIZE];
-    u16 iconPltt[8][16];
+    u8 iconGfx[NDS_BANNER_ANIM_ICON_COUNT][NDS_BANNER_ICON_SIZE];
+    u16 iconPltt[NDS_BANNER_ANIM_PALETTE_COUNT][16];
     nds_banner_anim_token_t animTokens[NDS_BANNER_ANIM_TOKEN_COUNT];
 } nds_banner_anim_t;
 
-typedef struct
+typedef struct alignas(32) nds_banner_t
 {
     nds_banner_header_t header;
     u8 iconGfx[NDS_BANNER_ICON_SIZE];

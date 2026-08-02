@@ -102,6 +102,12 @@ LaunchVisualSnapshot RomBrowserBottomScreenView::CaptureLaunchVisualSnapshot() c
         StringUtil::Copy(snapshot.title, snapshot.fileName, LaunchVisualSnapshot::TitleLength);
 
     snapshot.hasIcon = info && info->CopyGameIconData(snapshot.iconGraphics, snapshot.iconPalette);
+    if (snapshot.hasIcon && snapshot.isNds)
+    {
+        snapshot.ndsBanner = std::make_unique<nds_banner_t>();
+        if (!info->CopyGameBanner(snapshot.ndsBanner.get()))
+            snapshot.ndsBanner.reset();
+    }
     return snapshot;
 }
 
