@@ -27,6 +27,7 @@
 #include "themes/ThemeInfoFactory.h"
 #include "themes/ThemeFactory.h"
 #include "gui/Gx.h"
+#include "startupIntro/StartupIntro.h"
 #include "splashTop.h"
 #include "App.h"
 
@@ -114,7 +115,21 @@ void App::VCountIrq()
 void App::Run()
 {
     InitVramMapping();
-    DisplaySplashScreen();
+    _startupIntroPlayed = TryPlayStartupIntro(
+        _appSettingsService.GetAppSettings().theme.GetString(), _inputProvider);
+    if (_startupIntroPlayed)
+    {
+        VBlank::Wait();
+        sys_setMainEngineToBottomScreen();
+        REG_DISPCNT_SUB = 0x40211015;
+        REG_BLDCNT_SUB = 0;
+        REG_MASTER_BRIGHT = 0x4010;
+        REG_MASTER_BRIGHT_SUB = 0x4010;
+    }
+    else
+    {
+        DisplaySplashScreen();
+    }
     gx_init();
 
     _chipViewVram = ChipView::UploadGraphics(_mainObjVram);
@@ -197,7 +212,7 @@ void App::MainLoop()
 {
     bool fadeIn = true;
     bool exitAudioStarted = false;
-    int fadeWaitFrames = SPLASH_FRAMES;
+    int fadeWaitFrames = _startupIntroPlayed ? 0 : SPLASH_FRAMES;
     while (true)
     {
         Update();
@@ -236,12 +251,16 @@ void App::MainLoop()
                     REG_BLDCNT_SUB = 0;
                     REG_DISPCNT_SUB &= ~(1 << 9);
                     REG_MASTER_BRIGHT = 0;
+                    if (_startupIntroPlayed)
+                        REG_MASTER_BRIGHT_SUB = 0;
                 }
                 else
                 {
                     int fade = _fadeAnimator.GetValue();
                     REG_BLDALPHA_SUB = ((16 - fade) << 8) | fade;
                     REG_MASTER_BRIGHT = 0x4000 | fade;
+                    if (_startupIntroPlayed)
+                        REG_MASTER_BRIGHT_SUB = 0x4000 | fade;
                 }
             }
         }

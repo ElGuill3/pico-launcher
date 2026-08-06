@@ -61,7 +61,7 @@ public:
         return f_lseek(&_file, CREATE_LINKMAP);
     }
 
-    File() { }
+    File() : _file {} { }
 
     ~File()
     {
