@@ -41,7 +41,7 @@ ThemeSoundPlayer::ThemeSoundPlayer()
             0,
             0,
             0,
-            SOUNDCNT_VOLUME(80) | SOUNDCNT_PAN(64) | SOUNDCNT_MODE_ONCE | SOUNDCNT_FORMAT_PCM16
+            SOUNDCNT_VOLUME(112) | SOUNDCNT_PAN(64) | SOUNDCNT_MODE_ONCE | SOUNDCNT_FORMAT_PCM16
         },
         (ChannelMask << 8) | SND_IPC_CMD_START_CHANNELS
     }
