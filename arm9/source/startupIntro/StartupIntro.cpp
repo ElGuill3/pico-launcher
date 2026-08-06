@@ -1,4 +1,5 @@
 #include "common.h"
+#include <cstring>
 #include <memory>
 #include <nds/arm9/background.h>
 #include <nds/arm9/cache.h>
@@ -17,11 +18,30 @@ namespace
 const InputKey SkipKeys = InputKey::A | InputKey::B | InputKey::Select | InputKey::Start |
     InputKey::DpadRight | InputKey::DpadLeft | InputKey::DpadUp | InputKey::DpadDown |
     InputKey::R | InputKey::L | InputKey::X | InputKey::Y | InputKey::Touch;
+constexpr u32 MetadataMaxBytes = 32 + 256 * sizeof(u16) + startup_intro::PaniMaxFrames * 12;
 
-void LoadFrame(const u8* data, const startup_intro::PaniPackage& package, u16 frame, int background)
+bool LoadFrame(File& file, const startup_intro::PaniPackage& package, u16 frame, int background,
+    u8* compressed, u8* decoded)
 {
-    dma_ntrCopy32(3, data + package.frames[frame].offset,
-        bgGetGfxPtr(background), startup_intro::PaniFrameBytes);
+    const startup_intro::PaniFrame& source = package.frames[frame];
+    if (file.Seek(source.offset) != FR_OK)
+        return false;
+
+    if (package.codec == 0)
+    {
+        if (!file.ReadExact(decoded, source.length))
+            return false;
+    }
+    else
+    {
+        if (!file.ReadExact(compressed, startup_intro::PaniLz4StoredBytes(source.length)) ||
+            !startup_intro::DecodePaniFrame(package.codec, compressed, source.length,
+                decoded, startup_intro::PaniFrameBytes))
+            return false;
+    }
+    DC_FlushRange(decoded, startup_intro::PaniFrameBytes);
+    dma_ntrCopy32(3, decoded, bgGetGfxPtr(background), startup_intro::PaniFrameBytes);
+    return true;
 }
 
 void SampleInput(SampledInputProvider& inputProvider)
@@ -44,18 +64,43 @@ bool TryPlayStartupIntro(const char* themeName, SampledInputProvider& inputProvi
     if (fileSize < 32 || fileSize > startup_intro::PaniMaxPackageBytes)
         return false;
 
-    std::unique_ptr<u8[]> data(new(cache_align) u8[fileSize]);
-    if (!data)
-        return false;
-    u32 bytesRead = 0;
-    if (file.Read(data.get(), fileSize, bytesRead) != FR_OK || bytesRead != fileSize)
+    const u32 metadataSize = fileSize < MetadataMaxBytes ? fileSize : MetadataMaxBytes;
+    std::unique_ptr<u8[]> metadata(new(cache_align) u8[metadataSize]);
+    if (!metadata || !file.ReadExact(metadata.get(), metadataSize))
         return false;
 
-    startup_intro::PaniPackage package;
-    if (!startup_intro::ParsePani(data.get(), fileSize, package))
+    auto package = std::make_unique<startup_intro::PaniPackage>();
+    if (!package || !startup_intro::ParsePaniHeader(metadata.get(), metadataSize, fileSize, *package))
         return false;
 
-    DC_FlushRange(data.get(), fileSize);
+    constexpr u32 PaletteBytes = 256 * sizeof(u16);
+    if (package->paletteOffset > metadataSize ||
+        PaletteBytes > metadataSize - package->paletteOffset)
+        return false;
+    const u32 tableSize = package->frameCount * 12;
+    if (package->tableOffset > metadataSize || tableSize > metadataSize - package->tableOffset ||
+        !startup_intro::ParsePaniFrameTable(metadata.get() + package->tableOffset,
+            tableSize, fileSize, *package))
+        return false;
+
+    u8* palette = metadata.get() + package->paletteOffset;
+    std::unique_ptr<u8[]> alignedPalette;
+    if ((package->paletteOffset & 31) != 0)
+    {
+        alignedPalette.reset(new(cache_align) u8[PaletteBytes]);
+        if (!alignedPalette)
+            return false;
+        std::memcpy(alignedPalette.get(), palette, PaletteBytes);
+        palette = alignedPalette.get();
+    }
+
+    std::unique_ptr<u8[]> decoded(new(cache_align) u8[startup_intro::PaniFrameBytes]);
+    std::unique_ptr<u8[]> compressed;
+    if (package->codec == 1)
+        compressed.reset(new(cache_align) u8[startup_intro::PaniFrameBytes]);
+    if (!decoded || (package->codec == 1 && !compressed))
+        return false;
+
     sys_setMainEngineToBottomScreen();
     REG_MASTER_BRIGHT = 0x4010;
     REG_MASTER_BRIGHT_SUB = 0x4010;
@@ -67,8 +112,10 @@ bool TryPlayStartupIntro(const char* themeName, SampledInputProvider& inputProvi
     };
     bgHide(backgrounds[0]);
     bgHide(backgrounds[1]);
-    LoadFrame(data.get(), package, 0, backgrounds[0]);
-    dma_ntrCopy32(3, data.get() + package.paletteOffset, GFX_PLTT_BG_SUB, 256 * sizeof(u16));
+    if (!LoadFrame(file, *package, 0, backgrounds[0], compressed.get(), decoded.get()))
+        return false;
+    DC_FlushRange(palette, PaletteBytes);
+    dma_ntrCopy32(3, palette, GFX_PLTT_BG_SUB, PaletteBytes);
 
     inputProvider.Reset();
     VBlank::Wait();
@@ -78,10 +125,12 @@ bool TryPlayStartupIntro(const char* themeName, SampledInputProvider& inputProvi
     bool skipArmed = (inputProvider.GetCurrentKeys() & SkipKeys) == InputKey::None;
 
     u16 currentFrame = 0;
-    if (package.frameCount > 1)
-        LoadFrame(data.get(), package, 1, backgrounds[1]);
+    bool validPlayback = true;
+    if (package->frameCount > 1 &&
+        !LoadFrame(file, *package, 1, backgrounds[1], compressed.get(), decoded.get()))
+        return false;
 
-    for (u16 tick = 1; tick <= package.totalDuration; tick++)
+    for (u16 tick = 1; tick <= package->totalDuration; tick++)
     {
         VBlank::Wait();
         SampleInput(inputProvider);
@@ -91,17 +140,22 @@ bool TryPlayStartupIntro(const char* themeName, SampledInputProvider& inputProvi
         else if ((inputProvider.GetTriggeredKeys() & SkipKeys) != InputKey::None)
             break;
 
-        if (tick == package.totalDuration)
+        if (tick == package->totalDuration)
             break;
 
-        const u16 nextFrame = startup_intro::PaniFrameAtTick(package, tick);
+        const u16 nextFrame = startup_intro::PaniFrameAtTick(*package, tick);
         if (nextFrame != currentFrame)
         {
             bgHide(backgrounds[currentFrame & 1]);
             bgShow(backgrounds[nextFrame & 1]);
             currentFrame = nextFrame;
-            if (nextFrame + 1 < package.frameCount)
-                LoadFrame(data.get(), package, nextFrame + 1, backgrounds[(nextFrame + 1) & 1]);
+            if (nextFrame + 1 < package->frameCount &&
+                !LoadFrame(file, *package, nextFrame + 1, backgrounds[(nextFrame + 1) & 1],
+                    compressed.get(), decoded.get()))
+            {
+                validPlayback = false;
+                break;
+            }
         }
     }
 
@@ -114,5 +168,5 @@ bool TryPlayStartupIntro(const char* themeName, SampledInputProvider& inputProvi
         SampleInput(inputProvider);
     }
     inputProvider.Reset();
-    return true;
+    return validPlayback;
 }

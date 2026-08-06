@@ -35,6 +35,18 @@ Each theme has a `theme.json` file with information about the theme.
 
 Existing themes do not need to add `launchTransition`; omission preserves the current launch animation exactly. Unknown fields are ignored.
 
+## Startup intro
+
+Place an optional `intro.pani` in the theme folder. To convert an animation:
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -r tools/requirements-intro.txt
+.venv/bin/python tools/convert_intro.py source.gif intro.pani
+```
+
+The input must be an animated GIF or PNG/APNG with 1-150 frames at exactly 256x192. Every frame must last at least 67 ms, and the total quantized duration must be 0.5-10 seconds. Transparency is composited onto black. The converter uses one global 256-color palette, no dithering, and independent LZ4 blocks stored at 512-byte-aligned offsets with zero padding through each sector. Copy the output to `/_pico/themes/<theme>/intro.pani`.
+
 ## Material type
 ![Horizontal display mode with custom theme](images/Horizontal.png)
 
