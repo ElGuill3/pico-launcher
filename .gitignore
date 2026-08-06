@@ -47,3 +47,5 @@ Thumbs.db
 *.elf
 *.a
 .vscode/
+# Local AI runtime state
+.atl/
