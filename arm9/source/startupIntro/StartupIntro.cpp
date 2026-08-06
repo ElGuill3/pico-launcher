@@ -10,6 +10,7 @@
 #include "core/mini-printf.h"
 #include "fat/File.h"
 #include "gui/input/SampledInputProvider.h"
+#include "Brightness.h"
 #include "Pani.h"
 #include "StartupIntro.h"
 
@@ -102,8 +103,10 @@ bool TryPlayStartupIntro(const char* themeName, SampledInputProvider& inputProvi
         return false;
 
     sys_setMainEngineToBottomScreen();
-    REG_MASTER_BRIGHT = 0x4010;
-    REG_MASTER_BRIGHT_SUB = 0x4010;
+    GFX_PLTT_BG_MAIN[0] = startup_intro::MainBackdropColor;
+    videoSetMode(startup_intro::MainBackdropDisplayMode);
+    REG_MASTER_BRIGHT = startup_intro::HiddenBrightness;
+    REG_MASTER_BRIGHT_SUB = startup_intro::HiddenBrightness;
     videoSetModeSub(MODE_5_2D);
     const int backgrounds[2] =
     {
@@ -159,7 +162,7 @@ bool TryPlayStartupIntro(const char* themeName, SampledInputProvider& inputProvi
         }
     }
 
-    REG_MASTER_BRIGHT_SUB = 0x4010;
+    REG_MASTER_BRIGHT_SUB = startup_intro::HiddenBrightness;
     bgHide(backgrounds[0]);
     bgHide(backgrounds[1]);
     while ((inputProvider.GetCurrentKeys() & SkipKeys) != InputKey::None)

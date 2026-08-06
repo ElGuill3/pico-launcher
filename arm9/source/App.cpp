@@ -27,6 +27,7 @@
 #include "themes/ThemeInfoFactory.h"
 #include "themes/ThemeFactory.h"
 #include "gui/Gx.h"
+#include "startupIntro/Brightness.h"
 #include "startupIntro/StartupIntro.h"
 #include "splashTop.h"
 #include "App.h"
@@ -123,8 +124,8 @@ void App::Run()
         sys_setMainEngineToBottomScreen();
         REG_DISPCNT_SUB = 0x40211015;
         REG_BLDCNT_SUB = 0;
-        REG_MASTER_BRIGHT = 0x4010;
-        REG_MASTER_BRIGHT_SUB = 0x4010;
+        REG_MASTER_BRIGHT = startup_intro::HiddenBrightness;
+        REG_MASTER_BRIGHT_SUB = startup_intro::HiddenBrightness;
     }
     else
     {
@@ -258,9 +259,10 @@ void App::MainLoop()
                 {
                     int fade = _fadeAnimator.GetValue();
                     REG_BLDALPHA_SUB = ((16 - fade) << 8) | fade;
-                    REG_MASTER_BRIGHT = 0x4000 | fade;
+                    REG_MASTER_BRIGHT = _startupIntroPlayed
+                        ? startup_intro::BlackBrightness(fade) : 0x4000 | fade;
                     if (_startupIntroPlayed)
-                        REG_MASTER_BRIGHT_SUB = 0x4000 | fade;
+                        REG_MASTER_BRIGHT_SUB = startup_intro::BlackBrightness(fade);
                 }
             }
         }

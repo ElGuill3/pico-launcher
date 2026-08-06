@@ -17,6 +17,7 @@
 #include "dldiIpc.h"
 #include "fat/ff.h"
 #include "services/settings/JsonAppSettingsService.h"
+#include "startupIntro/Brightness.h"
 #include "App.h"
 #include "core/Environment.h"
 #include "rng/RandomGenerator.h"
@@ -140,8 +141,8 @@ static bool shouldMountDsiSd(int argc, char* argv[], bool dldiInitSuccessfull)
 
 int main(int argc, char* argv[])
 {
-    REG_MASTER_BRIGHT = 0x4010;
-    REG_MASTER_BRIGHT_SUB = 0x4010;
+    REG_MASTER_BRIGHT = startup_intro::HiddenBrightness;
+    REG_MASTER_BRIGHT_SUB = startup_intro::HiddenBrightness;
 
     bool dldiInitSuccessful = false;
     Environment::Initialize();
