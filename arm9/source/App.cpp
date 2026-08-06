@@ -49,7 +49,7 @@ App::App(IAppSettingsService& appSettingsService, IBgmService& bgmService)
     , _inputRepeater(&_inputProvider,
         InputKey::DpadLeft | InputKey::DpadRight | InputKey::DpadUp | InputKey::DpadDown | InputKey::L | InputKey::R,
         25, 8)
-    , _romBrowserController(&appSettingsService, &_ioTaskQueue, &_bgTaskQueue)
+    , _romBrowserController(&appSettingsService, &_ioTaskQueue, &_bgTaskQueue, &_backCommittedSignal)
     , _displaySettingsBottomSheetViewModel(&_romBrowserController)
     , _romBrowserBottomScreenViewModel(&_romBrowserController)
     , _dialogPresenter(&_focusManager, &_mainObjDialogVram) { }
@@ -106,6 +106,7 @@ void App::LoadTheme()
     _bottomBackground->LoadResources(*_theme, _mainVramContext);
     _navigationSoundPlayer.Load(*_theme, "sounds/navigation.wav");
     _launchSoundPlayer.Load(*_theme, "sounds/launch.wav");
+    _backSoundPlayer.Load(*_theme, "sounds/back.wav");
 }
 
 void App::VCountIrq()
@@ -204,6 +205,7 @@ void App::Run()
 
     _navigationSoundPlayer.Stop();
     _launchSoundPlayer.Stop();
+    _backSoundPlayer.Stop();
     _bgmService.StopBgm();
     rtos_disableIrqMask(RTOS_IRQ_VCOUNT);
     rtos_setIrqFunc(RTOS_IRQ_VCOUNT, nullptr);
@@ -339,7 +341,8 @@ void App::HandleShowGameInfoTrigger()
     // gameInfoDialog->SetGraphics(_chipViewVram);
     // _dialogPresenter.ShowDialog(std::move(gameInfoDialog));
 
-    auto cheatsViewModel = SharedPtr<CheatsViewModel>::MakeShared(_romBrowserController.GetTriggerFileInfo(), &_romBrowserController);
+    auto cheatsViewModel = SharedPtr<CheatsViewModel>::MakeShared(
+        _romBrowserController.GetTriggerFileInfo(), &_romBrowserController, &_backCommittedSignal);
     auto cheatsDialog = CheatsBottomSheetView::CreateShared(
         std::move(cheatsViewModel), &_theme->GetMaterialColorScheme(), _theme->GetFontRepository(), &_focusManager);
     _dialogPresenter.ShowDialog(std::move(cheatsDialog));
@@ -347,6 +350,7 @@ void App::HandleShowGameInfoTrigger()
 
 void App::HandleHideGameInfoTrigger()
 {
+    _backCommittedSignal.Commit(BackTransition::Accepted);
     _dialogPresenter.CloseDialog();
     if (!_dialogPresenter.GetOldFocus())
         _romBrowserBottomScreenView->Focus(_focusManager);
@@ -362,6 +366,7 @@ void App::HandleShowDisplaySettingsTrigger()
 
 void App::HandleHideDisplaySettingsTrigger()
 {
+    _backCommittedSignal.Commit(BackTransition::Accepted);
     _dialogPresenter.CloseDialog();
     if (!_dialogPresenter.GetOldFocus())
         _romBrowserBottomScreenView->Focus(_focusManager);
@@ -489,7 +494,10 @@ void App::Update()
     {
         _romBrowserController.TransferToPicoLoader();
     }
-    UpdateNavigationSoundSelection();
+    const bool backCommitted = _backCommittedSignal.Consume();
+    if (backCommitted)
+        _backSoundPlayer.Play();
+    UpdateNavigationSoundSelection(backCommitted);
     if (isRomBrowserVisible && _romBrowserTopScreenView)
     {
         _romBrowserTopScreenView->Update();
@@ -498,7 +506,7 @@ void App::Update()
     }
 }
 
-void App::UpdateNavigationSoundSelection()
+void App::UpdateNavigationSoundSelection(bool suppressPlayback)
 {
     const auto& viewModel = _romBrowserController.GetRomBrowserViewModel();
     if (!viewModel.IsValid())
@@ -525,7 +533,7 @@ void App::UpdateNavigationSoundSelection()
     const bool newSelectionValid = selectedItem >= 0 && static_cast<u32>(selectedItem) < itemCount;
     const bool navigationCommitted = !_inputRepeater.Current(InputKey::Touch) &&
         !_dialogPresenter.IsBottomSheetVisible();
-    if (oldSelectionValid && newSelectionValid && navigationCommitted)
+    if (!suppressPlayback && oldSelectionValid && newSelectionValid && navigationCommitted)
         _navigationSoundPlayer.Play();
 
     _navigationSoundSelectedItem = selectedItem;

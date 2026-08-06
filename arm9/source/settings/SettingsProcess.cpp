@@ -42,7 +42,8 @@ void SettingsProcess::Run()
 
     LoadTheme();
 
-    _settingsController = std::make_unique<SettingsController>(&_appSettingsService, &_ioTaskQueue);
+    _settingsController = std::make_unique<SettingsController>(
+        &_appSettingsService, &_ioTaskQueue, &_backCommittedSignal);
     _settingsController->Initialize();
 
     auto viewModel = SharedPtr<ThemeListViewModel>::MakeShared(_settingsController.get());
@@ -100,6 +101,7 @@ void SettingsProcess::Run()
 
     MainLoop();
 
+    _backSoundPlayer.Stop();
     rtos_disableIrqMask(RTOS_IRQ_VCOUNT);
     rtos_setIrqFunc(RTOS_IRQ_VCOUNT, nullptr);
 }
@@ -139,6 +141,7 @@ void SettingsProcess::LoadTheme()
     // _topBackground->LoadResources(*_theme, _subVramContext);
     _bottomBackground = _theme->CreateRomBrowserBottomBackground();
     _bottomBackground->LoadResources(*_theme, _mainVramContext);
+    _backSoundPlayer.Load(*_theme, "sounds/back.wav");
 }
 
 void SettingsProcess::MainLoop()
@@ -186,6 +189,8 @@ void SettingsProcess::Update()
     {
         HandleInput();
     }
+    if (_backCommittedSignal.Consume())
+        _backSoundPlayer.Play();
 
     // if (_topBackground)
     // {

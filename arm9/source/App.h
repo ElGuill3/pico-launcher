@@ -30,6 +30,7 @@
 #include "themes/ITheme.h"
 #include "animation/Animator.h"
 #include "bgm/ThemeSoundPlayer.h"
+#include "BackCommittedSignal.h"
 
 class alignas(32) App : public IProcess
 {
@@ -73,6 +74,8 @@ private:
     std::unique_ptr<IThemeBackground> _bottomBackground;
     ThemeSoundPlayer _navigationSoundPlayer;
     ThemeSoundPlayer _launchSoundPlayer;
+    ThemeSoundPlayer _backSoundPlayer;
+    BackCommittedSignal _backCommittedSignal;
 
     IAppSettingsService& _appSettingsService;
     IBgmService& _bgmService;
@@ -125,7 +128,7 @@ private:
     void HandleChangeDisplayModeTrigger(RomBrowserState newState);
     void HandleLaunchTrigger();
     void HandleLaunchFailedTrigger();
-    void UpdateNavigationSoundSelection();
+    void UpdateNavigationSoundSelection(bool suppressPlayback);
 
     void MainLoop();
     void Update();

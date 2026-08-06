@@ -3,8 +3,10 @@
 #include "fat/File.h"
 #include "CheatsViewModel.h"
 
-CheatsViewModel::CheatsViewModel(const FileInfo& romFileInfo, IRomBrowserController* romBrowserController)
+CheatsViewModel::CheatsViewModel(const FileInfo& romFileInfo,
+    IRomBrowserController* romBrowserController, BackCommittedSignal* backCommittedSignal)
     : _romFileInfo(romFileInfo), _romBrowserController(romBrowserController)
+    , _backCommittedSignal(backCommittedSignal)
 {
     _categoryStack.fill({ nullptr, 0 });
     _loadCheatsTask = _romBrowserController->GetIoTaskQueue()->Enqueue([this] (const vu8& cancelRequested)
@@ -82,6 +84,7 @@ bool CheatsViewModel::NavigateUp()
     {
         _selectedItem = _categoryStack[_categoryStackLevel].index;
         _categoryStack[_categoryStackLevel--] = { nullptr, 0 };
+        _backCommittedSignal->CommitCheatsBack(true);
         return true;
     }
 }

@@ -157,8 +157,11 @@ All themes can provide optional UI sounds in a `sounds` folder inside the theme 
 |-------------------------|-----------------------------------------------------------------------|----------------------|
 | `sounds/navigation.wav` | The selected game changes in any catalog layout.                      | 50-150 ms            |
 | `sounds/launch.wav`     | A game launch begins; playback overlaps the existing screen fade-out. | 150-250 ms           |
+| `sounds/back.wav`       | A backward transition commits, such as leaving a folder, closing a sheet, popping a cheats category, or leaving theme settings. | 50-250 ms |
 
-Both WAV files must use uncompressed PCM, signed 16-bit little-endian samples, one channel (mono), and a 22050 Hz sample rate. The PCM data in each file may not exceed 11,024 bytes (about 250 ms), and each complete WAV file may not exceed 16 KiB. These one-shot sounds share one audio channel, so a launch sound replaces any navigation sound that is still playing. Streamed `.bcstm` background music remains separate under `bgm`.
+All three WAV files are optional and must use uncompressed PCM, signed 16-bit little-endian samples, one channel (mono), and a 22050 Hz sample rate. The PCM data in each file may not exceed 11,024 bytes (about 250 ms), and each complete WAV file may not exceed 16 KiB. Missing or invalid files fall back to silence independently.
+
+The back sound follows the committed result, not the input: it does not play at the filesystem root, after a failed directory change, when selecting a theme, or for launch, startup-intro skip, failed-launch recovery, or entering settings. Back, navigation, and launch share one audio channel and replace one another; when Back and navigation would occur in the same frame, Back wins. Streamed `.bcstm` background music remains separate under `bgm`.
 
 ## Theme selector icon
 A theme can have an `icon.bmp` file that is shown in the theme list when selecting a theme. It must be **32×32 pixels, 4 bpp (16 colors), uncompressed `.bmp`** file, with the first palette color treated as transparent.

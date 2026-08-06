@@ -14,10 +14,11 @@
 
 RomBrowserController::RomBrowserController(
     IAppSettingsService* appSettingsService, TaskQueueBase* ioTaskQueue,
-    TaskQueueBase* bgTaskQueue)
+    TaskQueueBase* bgTaskQueue, BackCommittedSignal* backCommittedSignal)
     : _appSettingsService(appSettingsService)
     , _ioTaskQueue(ioTaskQueue), _bgTaskQueue(bgTaskQueue)
-    , _fileTypeProvider(appSettingsService->GetAppSettings()) { }
+    , _fileTypeProvider(appSettingsService->GetAppSettings())
+    , _backCommittedSignal(backCommittedSignal) { }
 
 void RomBrowserController::NavigateToPath(const TCHAR* name)
 {
@@ -158,6 +159,10 @@ void RomBrowserController::HandleTrigger()
 void RomBrowserController::HandleNavigateTrigger()
 {
     LOG_DEBUG("RomBrowserStateTrigger::Navigate\n");
+    const bool requestedBack = strcmp(_navigatePath, "..") == 0;
+    _folderBackRequested = requestedBack;
+    _folderChdirSucceeded = false;
+    _folderDirectoryChanged = false;
     _navigateTask = _ioTaskQueue->Enqueue([this] (const vu8& cancelRequested)
     {
         if (!_coverRepository)
@@ -200,7 +205,14 @@ void RomBrowserController::HandleNavigateTrigger()
                 _navigateFileName[-1] = 0;
             }
         }
-        f_chdir(_navigatePath);
+        TCHAR previousPath[256] = { 0 };
+        TCHAR currentPath[256] = { 0 };
+        const bool previousPathRead = f_getcwd(previousPath, sizeof(previousPath)) == FR_OK;
+        const FRESULT chdirResult = f_chdir(_navigatePath);
+        const bool currentPathRead = f_getcwd(currentPath, sizeof(currentPath)) == FR_OK;
+        _folderChdirSucceeded = chdirResult == FR_OK;
+        _folderDirectoryChanged = previousPathRead && currentPathRead &&
+            strcmp(previousPath, currentPath) != 0;
         SdFolderFactory sdFolderFactory { &_fileTypeProvider };
         _newSdFolder = sdFolderFactory.CreateFromPath(".");
         u64 endTick = gTickCounter.GetValue();
@@ -212,6 +224,8 @@ void RomBrowserController::HandleNavigateTrigger()
 void RomBrowserController::HandleFolderLoadDoneTrigger()
 {
     LOG_DEBUG("RomBrowserStateTrigger::FolderLoadDone\n");
+    _backCommittedSignal->CommitFolderBack(
+        _folderBackRequested, _folderChdirSucceeded, _folderDirectoryChanged);
     _romBrowserViewModel.Reset();
     _sdFolder = std::move(_newSdFolder);
     _romBrowserViewModel = SharedPtr<RomBrowserViewModel>::MakeShared(this, _navigateFileName);

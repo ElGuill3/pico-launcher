@@ -12,6 +12,7 @@
 #include "FileType/ExtensionFileTypeProvider.h"
 #include "services/settings/IAppSettingsService.h"
 #include "cheats/ICheatRepository.h"
+#include "BackCommittedSignal.h"
 
 class RomBrowserController : public IRomBrowserController
 {
@@ -25,7 +26,8 @@ public:
     };
 
     RomBrowserController(IAppSettingsService* appSettingsService,
-        TaskQueueBase* ioTaskQueue, TaskQueueBase* bgTaskQueue);
+        TaskQueueBase* ioTaskQueue, TaskQueueBase* bgTaskQueue,
+        BackCommittedSignal* backCommittedSignal);
 
     void NavigateUp() override
     {
@@ -83,11 +85,15 @@ private:
     LaunchPreparationState _launchPreparationState = LaunchPreparationState::Idle;
     bool _launchTransferRequested = false;
     bool _saveSettingsPending = false;
+    bool _folderBackRequested = false;
+    bool _folderChdirSucceeded = false;
+    bool _folderDirectoryChanged = false;
     std::unique_ptr<CoverRepository> _coverRepository;
     std::unique_ptr<IconRepository> _iconRepository;
     std::unique_ptr<BannerRepository> _bannerRepository;
     ExtensionFileTypeProvider _fileTypeProvider;
     std::unique_ptr<ICheatRepository> _cheatRepository;
+    BackCommittedSignal* _backCommittedSignal;
 
     void HandleTrigger();
     void HandleNavigateTrigger();
