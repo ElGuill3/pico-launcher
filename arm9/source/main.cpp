@@ -66,8 +66,9 @@ static void initLogger()
 static void initRandomGenerator()
 {
     u64 seed = gTickCounter.GetValue() + 1430287ULL;
-    rtc_datetime_t dateTime;
-    rtc_readDateTime(&dateTime);
+    SystemStatus systemStatus;
+    rtc_readStatus(&systemStatus);
+    const auto& dateTime = systemStatus.dateTime;
     seed = seed * 7302013ULL + dateTime.date.year;
     seed = seed * 7302013ULL + dateTime.date.month;
     seed = seed * 7302013ULL + dateTime.date.monthDay;

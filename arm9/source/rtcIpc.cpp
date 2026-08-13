@@ -12,9 +12,9 @@ static rtos_event_t sEvent;
 
 alignas(32) static union
 {
-    rtc_datetime_t dateTime;
+    SystemStatus status;
     u8 sizeAlign[32]; // ensure the size is also cache aligned to not corrupt nearby memory when invalidating
-} sDateTime;
+} sStatus;
 
 static void ipcMessageHandler(u32 channel, u32 data, void* arg)
 {
@@ -28,15 +28,15 @@ void rtc_init()
     ipc_setChannelHandler(IPC_CHANNEL_RTC, ipcMessageHandler, nullptr);
 }
 
-void rtc_readDateTime(rtc_datetime_t* dateTime)
+void rtc_readStatus(SystemStatus* status)
 {
     rtos_lockMutex(&sMutex);
     {
         rtos_clearEvent(&sEvent);
-        DC_InvalidateRange(&sDateTime, sizeof(sDateTime));
-        ipc_sendFifoMessage(IPC_CHANNEL_RTC, (u32)&sDateTime >> 2);
+        DC_InvalidateRange(&sStatus, sizeof(sStatus));
+        ipc_sendFifoMessage(IPC_CHANNEL_RTC, (u32)&sStatus >> 2);
         rtos_waitEvent(&sEvent, false, true);
-        memcpy(dateTime, &sDateTime.dateTime, sizeof(rtc_datetime_t));
+        memcpy(status, &sStatus.status, sizeof(SystemStatus));
     }
     rtos_unlockMutex(&sMutex);
 }
