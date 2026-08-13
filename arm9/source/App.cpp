@@ -388,7 +388,9 @@ void App::HandleFolderLoadDoneTrigger()
         _romBrowserController.GetRomBrowserViewModel(),
         displayMode,
         _theme->GetThemeFileIconFactory(),
-        _theme->GetRomBrowserViewFactory());
+        _theme->GetRomBrowserViewFactory(),
+        &_theme->GetMaterialColorScheme(),
+        _theme->GetFontRepository());
     _romBrowserTopScreenView->InitVram(_subVramContext);
     _romBrowserBottomScreenView->RomBrowserViewModelInvalidated(_mainVramContext);
     if (!_focusManager.GetCurrentFocus())
@@ -413,7 +415,9 @@ void App::HandleChangeDisplayModeTrigger(RomBrowserState newState)
         _romBrowserController.GetRomBrowserViewModel(),
         displayMode,
         _theme->GetThemeFileIconFactory(),
-        _theme->GetRomBrowserViewFactory());
+        _theme->GetRomBrowserViewFactory(),
+        &_theme->GetMaterialColorScheme(),
+        _theme->GetFontRepository());
     _romBrowserTopScreenView->InitVram(_subVramContext);
     _romBrowserBottomScreenView->RomBrowserViewModelInvalidated(_mainVramContext);
     if (newState == RomBrowserState::Browser)
@@ -446,7 +450,8 @@ void App::HandleLaunchFailedTrigger()
         _romBrowserController.GetRomBrowserDisplaySettings().layout);
     _romBrowserTopScreenView = RomBrowserTopScreenView::CreateShared(
         _romBrowserController.GetRomBrowserViewModel(), displayMode,
-        _theme->GetThemeFileIconFactory(), _theme->GetRomBrowserViewFactory());
+        _theme->GetThemeFileIconFactory(), _theme->GetRomBrowserViewFactory(),
+        &_theme->GetMaterialColorScheme(), _theme->GetFontRepository());
     _romBrowserTopScreenView->InitVram(_subVramContext);
     _romBrowserBottomScreenView->RomBrowserViewModelInvalidated(_mainVramContext);
     _romBrowserBottomScreenView->Focus(_focusManager);

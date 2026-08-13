@@ -35,6 +35,11 @@ public:
         _hAlign = alignment;
     }
 
+    void SetVerticalAlignment(Alignment alignment)
+    {
+        _vAlign = alignment;
+    }
+
     u32 GetStringWidth() const { return _stringWidth; }
 
     void SetBackgroundColor(const Rgb<8, 8, 8>& backgroundColor)
@@ -72,6 +77,7 @@ protected:
     std::unique_ptr<u8[]> _tileBuffer;
     const nft2_header_t* _font;
     Alignment _hAlign;
+    Alignment _vAlign;
     u32 _stringWidth;
     u32 _newStringWidth;
     Rgb<8, 8, 8> _backgroundColor;

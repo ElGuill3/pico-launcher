@@ -16,7 +16,7 @@
 LabelView::LabelView(u32 width, u32 height, u32 maxStringLength, const nft2_header_t* font, bool a5i3)
     : _width(width), _height(height)
     , _maxStringLength(maxStringLength), _font(font)
-    , _hAlign(Alignment::Start)
+    , _hAlign(Alignment::Start), _vAlign(Alignment::Start)
     , _stringWidth(0), _newStringWidth(0), _a5i3(a5i3)
 {
     _textBuffer = std::make_unique_for_overwrite<char16_t[]>(_maxStringLength + 1);
@@ -80,7 +80,10 @@ void LabelView::UpdateTileBuffer()
     {
         nft2_string_render_params_t renderParams;
         renderParams.x = 0;
-        renderParams.y = 0;
+        int textHeight = _font->ascend + _font->descend;
+        renderParams.y = _vAlign == Alignment::Center ? ((int)_height - textHeight) / 2
+            : _vAlign == Alignment::End ? (int)_height - textHeight
+            : 0;
         renderParams.width = _width;
         renderParams.height = _height;
         renderParams.a5i3 = _a5i3;
