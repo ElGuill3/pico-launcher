@@ -1,0 +1,1 @@
+Pillow==11.1.0 --hash=sha256:9aa9aeddeed452b2f616ff5507459e7bab436916ccb10961c4a382cd3e03f47f

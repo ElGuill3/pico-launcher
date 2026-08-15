@@ -1,6 +1,7 @@
 #include "common.h"
 #include "NotoSansJP-Regular-10_nft2.h"
 #include "NotoSansJP-Medium-7_5_nft2.h"
+#include "NotoSansJP-Medium-9_nft2.h"
 #include "NotoSansJP-Medium-10_nft2.h"
 #include "NotoSansJP-Medium-11_nft2.h"
 #include "DefaultFontRepository.h"
@@ -16,6 +17,10 @@ const nft2_header_t* DefaultFontRepository::GetFont(FontType fontType) const
         case FontType::Medium7_5:
         {
             return (const nft2_header_t*)NotoSansJP_Medium_7_5_nft2;
+        }
+        case FontType::Medium9:
+        {
+            return (const nft2_header_t*)NotoSansJP_Medium_9_nft2;
         }
         case FontType::Medium10:
         {
