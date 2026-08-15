@@ -1,4 +1,5 @@
 #pragma once
+#include <algorithm>
 #include <array>
 #include <cstdint>
 
@@ -13,13 +14,12 @@ struct Color
     constexpr bool operator==(const Color&) const = default;
 };
 
-constexpr Color RailColor{ 0x3f, 0x48, 0x54 };
-constexpr Color ProfileBackground{ 0x56, 0x61, 0x6e };
 constexpr Color White{ 0xff, 0xff, 0xff };
 constexpr Color BatteryGreen{ 0x6f, 0xdc, 0x50 };
 constexpr Color OnlineBlue{ 0x66, 0xc0, 0xf4 };
+constexpr Color StatusText{ 0xd0, 0xd0, 0xd0 };
+constexpr Color NicknameText{ 0x4f, 0x9b, 0xc4 };
 
-constexpr uint8_t ProfileBackgroundPaletteIndex = 12;
 constexpr uint8_t OnlineBluePaletteIndex = 13;
 constexpr uint8_t BatteryGreenPaletteIndex = 14;
 constexpr uint8_t WhitePaletteIndex = 15;
@@ -36,18 +36,13 @@ struct Bounds
 
 struct Layout
 {
-    Bounds rail;
     Bounds volume;
     Bounds speaker;
     Bounds center;
     Bounds dateTime;
     Bounds battery;
     Bounds ntrText;
-    Bounds profile;
     Bounds nickname;
-    Bounds profileAvatar;
-    Bounds profileContent;
-    Bounds profileTrailingEdge;
     Bounds fallbackDateTime;
     Bounds fallbackBatteryState;
 };
@@ -77,10 +72,7 @@ struct PresentationState
     bool ntrHigh;
 };
 
-constexpr uint8_t RailOamEntries = 8;
-constexpr uint16_t RailGraphicsOffset = 0;
-constexpr uint16_t RailGraphicsBytes = 256;
-constexpr uint16_t SpeakerGraphicsOffset = 256;
+constexpr uint16_t SpeakerGraphicsOffset = 0;
 constexpr uint16_t SpeakerFrameBytes = 128;
 constexpr uint8_t SpeakerFrameCount = 4;
 constexpr uint16_t SpeakerGraphicsBytes = SpeakerFrameBytes * SpeakerFrameCount;
@@ -91,15 +83,122 @@ constexpr uint8_t BatterySpriteHeight = 8;
 constexpr uint8_t BatteryFrameCount = 11;
 constexpr uint8_t BatteryFrameBytes = 64;
 constexpr uint16_t BatterySourceGraphicsBytes = BatteryFrameCount * BatteryFrameBytes;
-constexpr uint16_t ProfileGraphicsOffset = BatteryGraphicsOffset + BatteryGraphicsBytes;
-constexpr uint16_t ProfileGraphicsBytes = 128;
-constexpr uint16_t StatusGraphicsBytes = ProfileGraphicsOffset + ProfileGraphicsBytes;
+constexpr uint16_t StatusGraphicsBytes = BatteryGraphicsOffset + BatteryGraphicsBytes;
 constexpr uint8_t NtrBatteryFrame = 10;
-constexpr uint8_t MaxStatusOamEntries = 16;
-constexpr uint16_t MaxStatusObjVramBytes = 2560;
+constexpr uint8_t MaxStatusOamEntries = 7;
+constexpr uint16_t StatusLabelObjVramBytes(uint16_t width, uint16_t height)
+{
+    const uint16_t roundedWidth = (width + 31) & ~31;
+    const uint16_t roundedHeight = (height + 15) & ~15;
+    return (roundedWidth * roundedHeight) / 2;
+}
+constexpr uint16_t MaxStatusObjVramBytes = StatusLabelObjVramBytes(64, 16) +
+    StatusLabelObjVramBytes(24, 16) + StatusLabelObjVramBytes(66, 16) + StatusGraphicsBytes;
 constexpr uint8_t StatusPaletteRows = 4;
 constexpr uint8_t NicknameCharacterLimit = 10;
-constexpr uint8_t NicknameTextWidth = 50;
+constexpr uint8_t NicknameTextWidth = 66;
+constexpr uint8_t StatusHeight = 16;
+constexpr uint16_t StatusCoverageBytes = NicknameTextWidth * StatusHeight;
+constexpr int StatusScreenWidth = 256;
+constexpr int StatusVolumeLeft = 2;
+constexpr int StatusNicknameRight = StatusScreenWidth;
+constexpr int StatusDateTimeLeft = 96;
+constexpr int StatusDateTimeRight = 160;
+constexpr int StatusNtrTextRight = 168;
+constexpr int StatusBatteryGap = 18;
+
+struct FontMetrics
+{
+    int ascend;
+    int descend;
+};
+
+enum class StatusTextSample
+{
+    DateTime,
+    NtrHigh,
+    NtrLow,
+    NicknameEllipsis,
+};
+
+constexpr FontMetrics StatusTextFontMetrics()
+{
+    // NotoSansJP Medium 9: generated from the pinned source and inspected from NFT2.
+    return { 11, 3 };
+}
+
+constexpr int StatusTextBaseline(FontMetrics metrics, int height)
+{
+    return (height - metrics.ascend - metrics.descend) / 2;
+}
+
+constexpr int StatusTextInkTop(FontMetrics metrics, int glyphSpacingTop, int height)
+{
+    return StatusTextBaseline(metrics, height) + glyphSpacingTop;
+}
+
+constexpr int StatusTextInkBottom(FontMetrics metrics, int glyphHeight, int glyphSpacingTop, int height)
+{
+    return StatusTextInkTop(metrics, glyphSpacingTop, height) + glyphHeight;
+}
+
+constexpr int StatusTextWidth(StatusTextSample sample)
+{
+    switch (sample)
+    {
+        case StatusTextSample::DateTime: return 49; // "12/31 23:59"
+        case StatusTextSample::NtrHigh: return 23;
+        case StatusTextSample::NtrLow: return 20;
+        case StatusTextSample::NicknameEllipsis: return 53; // "WWWW ... W" in 66 pixels
+    }
+    return 0;
+}
+
+enum class TextMode
+{
+    Composed,
+    MaterialObject,
+    BinaryFallback,
+};
+
+constexpr TextMode StatusTextMode(bool statusGraphicsReady, bool customComposed, bool materialObject)
+{
+    if (!statusGraphicsReady)
+        return TextMode::BinaryFallback;
+    return customComposed ? TextMode::Composed : materialObject ? TextMode::MaterialObject : TextMode::BinaryFallback;
+}
+
+constexpr bool StatusTextRequiresPristineRestore(bool composedBackground, bool compositionComplete)
+{
+    return composedBackground && !compositionComplete;
+}
+
+constexpr bool StatusTextVisible(TextMode mode, bool binaryObject)
+{
+    return mode != TextMode::Composed && binaryObject;
+}
+
+constexpr bool StatusIconsVisible(TextMode, bool statusGraphicsReady)
+{
+    return statusGraphicsReady;
+}
+
+constexpr std::array<uint16_t, 16> MakeCoveragePalette(uint16_t background, uint16_t foreground)
+{
+    std::array<uint16_t, 16> palette{};
+    for (uint16_t coverage = 0; coverage < palette.size(); ++coverage)
+    {
+        const auto blend = [coverage](uint16_t dst, uint16_t src)
+        {
+            return static_cast<uint16_t>((dst * (15 - coverage) + src * coverage + 7) / 15);
+        };
+        palette[coverage] = static_cast<uint16_t>((background & 0x8000) |
+            blend(background & 0x1f, foreground & 0x1f) |
+            (blend((background >> 5) & 0x1f, (foreground >> 5) & 0x1f) << 5) |
+            (blend((background >> 10) & 0x1f, (foreground >> 10) & 0x1f) << 10));
+    }
+    return palette;
+}
 
 constexpr bool StatusGraphicsBlockFits(uint32_t offset)
 {
@@ -109,11 +208,6 @@ constexpr bool StatusGraphicsBlockFits(uint32_t offset)
 constexpr bool StatusGraphicsWritable(uint32_t offset, bool hasAddress)
 {
     return hasAddress && StatusGraphicsBlockFits(offset);
-}
-
-constexpr uint8_t RailPaletteIndex(uint8_t, uint8_t)
-{
-    return 1;
 }
 
 constexpr uint16_t ToRgb555(Color color)
@@ -127,10 +221,6 @@ constexpr uint16_t ToRgb555(Color color)
 constexpr std::array<uint16_t, 16> MakeStatusPalette()
 {
     std::array<uint16_t, 16> palette{};
-    palette.fill(ToRgb555(RailColor));
-    palette[0] = 0;
-    palette[1] = ToRgb555(RailColor);
-    palette[ProfileBackgroundPaletteIndex] = ToRgb555(ProfileBackground);
     palette[OnlineBluePaletteIndex] = ToRgb555(OnlineBlue);
     palette[BatteryGreenPaletteIndex] = ToRgb555(BatteryGreen);
     palette[WhitePaletteIndex] = ToRgb555(White);
@@ -193,25 +283,45 @@ constexpr bool Overlaps(const Bounds& first, const Bounds& second)
         first.top < second.bottom && second.top < first.bottom;
 }
 
+constexpr bool StatusTextFits(StatusTextSample sample, Bounds bounds)
+{
+    return StatusTextWidth(sample) <= bounds.right - bounds.left;
+}
+
+constexpr Bounds MakeNicknameInkBounds(int displayedWidth)
+{
+    const int width = std::clamp(displayedWidth, 0, static_cast<int>(NicknameTextWidth));
+    return { StatusNicknameRight - width, 0, StatusNicknameRight, StatusHeight };
+}
+
+constexpr Bounds MakeBatteryBounds(bool dsiMode, int displayedNicknameWidth)
+{
+    const auto nickname = MakeNicknameInkBounds(displayedNicknameWidth);
+    const int minimumLeft = dsiMode ? StatusDateTimeRight : StatusNtrTextRight;
+    const int right = std::clamp(nickname.left - StatusBatteryGap,
+        minimumLeft + BatterySpriteWidth, StatusNicknameRight);
+    return { right - BatterySpriteWidth, 4, right, 12 };
+}
+
+constexpr Bounds MakeBatteryStateBounds(bool dsiMode, int displayedNicknameWidth)
+{
+    const auto battery = MakeBatteryBounds(dsiMode, displayedNicknameWidth);
+    return { battery.right - 24, 0, battery.right, StatusHeight };
+}
+
 constexpr Layout MakeLayout(bool dsiMode)
 {
-    Bounds center = dsiMode ? Bounds{ 86, 0, 170, 16 } : Bounds{ 73, 0, 183, 16 };
-    int dateTimeLeft = center.left;
+    Bounds center{ StatusDateTimeLeft, 0, StatusDateTimeRight, StatusHeight };
     return {
-        { 0, 0, 256, 16 },
-        { 2, 0, 18, 16 },
-        { 2, 0, 18, 16 },
+        { StatusVolumeLeft, 0, StatusVolumeLeft + 16, 16 },
+        { StatusVolumeLeft, 0, StatusVolumeLeft + 16, 16 },
         center,
-        { dateTimeLeft, 0, dateTimeLeft + 64, 16 },
-        { 170, 4, 186, 12 },
-        dsiMode ? Bounds{ 0, 0, 0, 0 } : Bounds{ 144, 0, 168, 16 },
-        { 188, 0, 256, 16 },
-        { 186, 0, 236, 16 },
-        { 240, 0, 256, 16 },
-        { 240, 0, 254, 16 },
-        { 254, 0, 256, 16 },
-        { 82, 0, 146, 16 },
-        { 150, 0, 174, 16 }
+        center,
+        MakeBatteryBounds(dsiMode, NicknameTextWidth),
+        dsiMode ? Bounds{ 0, 0, 0, 0 } : Bounds{ 144, 0, StatusNtrTextRight, 16 },
+        { StatusNicknameRight - NicknameTextWidth, 0, StatusNicknameRight, 16 },
+        center,
+        MakeBatteryStateBounds(dsiMode, NicknameTextWidth)
     };
 }
 

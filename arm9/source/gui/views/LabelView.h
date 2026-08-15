@@ -41,6 +41,8 @@ public:
     }
 
     u32 GetStringWidth() const { return _stringWidth; }
+    u32 GetRenderedStringWidth() const { return _newStringWidth; }
+    const char16_t* GetText() const { return _textBuffer.get(); }
 
     void SetBackgroundColor(const Rgb<8, 8, 8>& backgroundColor)
     {
@@ -50,6 +52,11 @@ public:
     void SetForegroundColor(const Rgb<8, 8, 8>& foregroundColor)
     {
         _foregroundColor = foregroundColor;
+    }
+
+    void SetGlyphAntialiasing(bool enabled)
+    {
+        _glyphAntialiasing = enabled;
     }
 
     Rectangle GetBounds() const override
@@ -85,6 +92,7 @@ protected:
     int _paletteRow = -1;
     EllipsisStyle _ellipsisStyle = EllipsisStyle::None;
     bool _a5i3;
+    bool _glyphAntialiasing = true;
 
     LabelView(u32 width, u32 height, u32 maxStringLength, const nft2_header_t* font, bool a5i3);
 

@@ -1,7 +1,6 @@
 import binascii
 import os
 import pathlib
-import shutil
 import subprocess
 import struct
 import sys
@@ -13,12 +12,9 @@ import zlib
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 GFX = pathlib.Path(os.environ.get("STATUS_GFX_DIR", ROOT / "arm9" / "gfx"))
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
-RAIL = 1
-PROFILE_BACKGROUND = 12
 ONLINE_BLUE = 13
 BATTERY_GREEN = 14
 WHITE = 15
-FORMER_CHARACTER_INDICES = {8, 9, 10, 11}
 
 
 def indexed_png(path):
@@ -76,16 +72,6 @@ def ds_4bpp_tiles(frames, width, height):
     return bytes(encoded)
 
 
-def rgb555(color):
-    return tuple((channel * 31 + 127) // 255 for channel in color)
-
-
-def srgb_luminance(color):
-    channels = [channel / 31 for channel in color]
-    channels = [value / 12.92 if value <= 0.04045 else ((value + 0.055) / 1.055) ** 2.4 for value in channels]
-    return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2]
-
-
 class StatusBarAssetTests(unittest.TestCase):
     def test_speaker_is_exactly_ten_pixels_high_with_cumulative_curved_waves(self):
         width, height, palette, transparency, pixels = indexed_png(GFX / "statusSpeaker.png")
@@ -130,53 +116,6 @@ class StatusBarAssetTests(unittest.TestCase):
             (min(x for x, _ in white[3]), max(x for x, _ in white[3])),
             (1, 14))
 
-    def test_profile_is_a_square_lighter_tile_with_a_centered_symmetric_bust(self):
-        width, height, palette, transparency, pixels = indexed_png(GFX / "statusProfile.png")
-        self.assertEqual((width, height), (16, 16))
-        self.assertEqual(transparency[0], 0)
-        self.assertEqual(palette[PROFILE_BACKGROUND * 3:(PROFILE_BACKGROUND + 1) * 3], bytes.fromhex("56616e"))
-        self.assertEqual(palette[ONLINE_BLUE * 3:(ONLINE_BLUE + 1) * 3], bytes.fromhex("66c0f4"))
-        self.assertEqual(palette[WHITE * 3:(WHITE + 1) * 3], b"\xff\xff\xff")
-        self.assertTrue(FORMER_CHARACTER_INDICES.isdisjoint(set(b"".join(pixels))))
-        self.assertEqual(set(b"".join(pixels)), {PROFILE_BACKGROUND, ONLINE_BLUE, WHITE})
-        quantized = {
-            rgb555(tuple(palette[index * 3:(index + 1) * 3]))
-            for index in (RAIL, PROFILE_BACKGROUND, ONLINE_BLUE, BATTERY_GREEN, WHITE)
-        }
-        self.assertEqual(len(quantized), 5)
-        rail_luminance = srgb_luminance(rgb555(tuple(palette[RAIL * 3:(RAIL + 1) * 3])))
-        profile_luminance = srgb_luminance(rgb555(tuple(palette[PROFILE_BACKGROUND * 3:(PROFILE_BACKGROUND + 1) * 3])))
-        self.assertLessEqual(1.3, (profile_luminance + 0.05) / (rail_luminance + 0.05))
-        self.assertLessEqual((profile_luminance + 0.05) / (rail_luminance + 0.05), 1.6)
-
-        self.assertTrue(all(value != 0 and value != RAIL for row in pixels for value in row))
-        self.assertTrue(all(row == row[::-1] for row in pixels))
-        silhouette = {
-            (x, y)
-            for y, row in enumerate(pixels)
-            for x, value in enumerate(row)
-            if value in {WHITE, ONLINE_BLUE}
-        }
-        self.assertEqual(len(components(silhouette)), 1)
-        silhouette_rows = [{x for x, value in enumerate(row) if value in {WHITE, ONLINE_BLUE}} for row in pixels]
-        self.assertTrue(all(not xs or min(xs) + max(xs) == 15 for xs in silhouette_rows))
-
-        white_rows = [{x for x, value in enumerate(row) if value == WHITE} for row in pixels]
-        self.assertEqual([len(white_rows[y]) for y in range(1, 8)], [4, 6, 8, 8, 8, 6, 4])
-        self.assertTrue(all(
-            xs and min(xs) + max(xs) == 15
-            for xs in white_rows[1:8]
-        ))
-        self.assertEqual([len(white_rows[y]) for y in range(8, 15)], [4, 6, 10, 6, 6, 4, 2])
-
-        blue_rows = [{x for x, value in enumerate(row) if value == ONLINE_BLUE} for row in pixels]
-        self.assertEqual([len(blue_rows[y]) for y in range(11, 15)], [6, 8, 10, 10])
-        self.assertTrue(all(min(xs) + max(xs) == 15 for xs in blue_rows[11:15]))
-        self.assertEqual(
-            [sum(value in {WHITE, ONLINE_BLUE} for value in pixels[y]) for y in range(10, 16)],
-            [10, 12, 14, 14, 12, 0],
-        )
-
     def test_battery_frames_are_horizontal_progressive_and_distinct(self):
         width, height, palette, transparency, pixels = indexed_png(GFX / "statusBattery.png")
         self.assertEqual((width, height), (16, 88))
@@ -216,23 +155,22 @@ class StatusBarAssetTests(unittest.TestCase):
         self.assertTrue(all(frames[10][4][x] == WHITE for x in range(4, 10)))
         self.assertNotEqual(b"".join(frames[10]), b"".join(frames[0]))
 
-    def test_only_the_three_compact_status_assets_exist(self):
+    def test_only_the_two_compact_status_assets_exist(self):
         self.assertFalse((GFX / "statusRail.png").exists())
         self.assertFalse((GFX / "statusRail.grit").exists())
+        self.assertFalse((GFX / "statusProfile.png").exists())
+        self.assertFalse((GFX / "statusProfile.grit").exists())
 
     def test_temp_mutants_are_rejected(self):
         if os.environ.get("STATUS_SKIP_MUTANTS"):
             self.skipTest("nested mutant run")
 
         battery_source = GFX / "statusBattery.png"
-        profile_source = GFX / "statusProfile.png"
         _, _, _, _, battery_pixels = indexed_png(battery_source)
-        _, _, _, _, profile_pixels = indexed_png(profile_source)
         battery_frames = [battery_pixels[index * 8:(index + 1) * 8] for index in range(11)]
 
         with self.subTest("vertical battery"), tempfile.TemporaryDirectory() as directory:
             directory = pathlib.Path(directory)
-            shutil.copy2(profile_source, directory / "statusProfile.png")
             vertical_frames = [
                 [bytes(frame[7 - x][y] for x in range(8)) for y in range(16)]
                 for frame in battery_frames
@@ -242,13 +180,11 @@ class StatusBarAssetTests(unittest.TestCase):
 
         with self.subTest("nonprogressive battery"), tempfile.TemporaryDirectory() as directory:
             directory = pathlib.Path(directory)
-            shutil.copy2(profile_source, directory / "statusProfile.png")
             self.save_indexed_mutant(directory / "statusBattery.png", 16, 88, battery_frames[:1] * 5 + battery_frames[5:])
             self.assert_mutant_rejected(directory, "test_battery_frames_are_horizontal_progressive_and_distinct")
 
         with self.subTest("missing terminal"), tempfile.TemporaryDirectory() as directory:
             directory = pathlib.Path(directory)
-            shutil.copy2(profile_source, directory / "statusProfile.png")
             frames = [[bytearray(row) for row in frame] for frame in battery_frames]
             for frame in frames:
                 for y in range(3, 6):
@@ -256,24 +192,12 @@ class StatusBarAssetTests(unittest.TestCase):
             self.save_indexed_mutant(directory / "statusBattery.png", 16, 88, frames)
             self.assert_mutant_rejected(directory, "test_battery_frames_are_horizontal_progressive_and_distinct")
 
-        for name, mutate in {
-            "profile rail background": lambda rows: [bytes(RAIL if value == PROFILE_BACKGROUND else value for value in row) for row in rows],
-            "square silhouette": lambda rows: [bytes(WHITE if x < 14 else value for x, value in enumerate(row)) for row in rows],
-            "asymmetric edge": lambda rows: [row[:14] + bytes([ONLINE_BLUE, PROFILE_BACKGROUND]) for row in rows],
-        }.items():
-            with self.subTest(name), tempfile.TemporaryDirectory() as directory:
-                directory = pathlib.Path(directory)
-                shutil.copy2(battery_source, directory / "statusBattery.png")
-                self.save_indexed_mutant(directory / "statusProfile.png", 16, 16, mutate(profile_pixels))
-                self.assert_mutant_rejected(
-                    directory, "test_profile_is_a_square_lighter_tile_with_a_centered_symmetric_bust")
-
     @staticmethod
     def save_indexed_mutant(path, width, height, rows):
         rows = [row for group in rows for row in group] if rows and isinstance(rows[0], list) else rows
         palette = bytearray(bytes.fromhex("000000") * 16)
         for index, color in {
-            RAIL: "3f4854", PROFILE_BACKGROUND: "56616e", ONLINE_BLUE: "66c0f4",
+            ONLINE_BLUE: "66c0f4",
             BATTERY_GREEN: "6fdc50", WHITE: "ffffff",
         }.items():
             palette[index * 3:(index + 1) * 3] = bytes.fromhex(color)

@@ -6,6 +6,7 @@
 #include "gui/GraphicsContext.h"
 #include "core/StringUtil.h"
 #include "gui/palette/GradientPalette.h"
+#include "gui/palette/DirectPalette.h"
 #include "Label2DView.h"
 
 void Label2DView::InitVram(const VramContext& vramContext)
@@ -38,8 +39,10 @@ void Label2DView::Draw(GraphicsContext& graphicsContext)
         xOffset += ((int)_width - (int)_stringWidth) / 2;
     else if (_hAlign == Alignment::End)
         xOffset += (int)_width - (int)_stringWidth;
-    u32 paletteRow = graphicsContext.GetPaletteManager().AllocRow(
-        GradientPalette(_backgroundColor, _foregroundColor), _position.y, _position.y + _height);
+    u32 paletteRow = _directPalette
+        ? graphicsContext.GetPaletteManager().AllocRow(DirectPalette(_directPalette), _position.y, _position.y + _height)
+        : graphicsContext.GetPaletteManager().AllocRow(
+            GradientPalette(_backgroundColor, _foregroundColor), _position.y, _position.y + _height);
     u32 i = 0;
     for (u32 y = 0; y < vCellCount; y++)
     {

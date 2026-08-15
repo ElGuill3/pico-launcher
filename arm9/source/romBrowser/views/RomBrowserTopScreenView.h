@@ -13,6 +13,7 @@ class RomBrowserViewModel;
 class IRomBrowserViewFactory;
 class IFontRepository;
 class MaterialColorScheme;
+class IThemeBackground;
 
 class RomBrowserTopScreenView : public ViewContainer
 {
@@ -32,6 +33,7 @@ public:
 private:
     SharedPtr<RomBrowserViewModel> _viewModel;
     const IThemeFileIconFactory* _themeFileIconFactory;
+    const nft2_header_t* _statusFont;
     SharedPtr<BannerView> _fileInfoView;
     SharedPtr<Label2DView> _centerStatusLabel;
     SharedPtr<Label2DView> _batteryStateLabel;
@@ -43,6 +45,11 @@ private:
     status_bar::PresentationState _statusPresentation{};
     status_bar::Layout _statusLayout{};
     std::array<uint16_t, 16> _statusPalette{};
+    std::array<uint16_t, 32> _materialStatusPalettes{};
+    std::array<uint8_t, status_bar::StatusCoverageBytes> _statusCoverage{};
+    const IThemeBackground* _topBackground;
+    IThemeBackground* _mutableTopBackground;
+    status_bar::TextMode _textMode = status_bar::TextMode::BinaryFallback;
     uint32_t _statusGraphicsOffset = 0;
     volatile uint16_t* _statusGraphicsAddress = nullptr;
     int _lastSelectedItem = -1;
@@ -50,10 +57,8 @@ private:
     bool _iconGraphicsUploaded = false;
     bool _coverGraphicsUploaded = false;
     bool _statusGraphicsReady = false;
-    bool _railGraphicsDirty = false;
     bool _speakerGraphicsDirty = false;
     bool _batteryGraphicsDirty = false;
-    bool _profileGraphicsDirty = false;
     bool _showCover;
     Point _coverPosition;
 
@@ -62,7 +67,9 @@ private:
         const IThemeFileIconFactory* themeFileIconFactory,
         const IRomBrowserViewFactory* romBrowserViewFactory,
         const MaterialColorScheme* materialColorScheme,
+        IThemeBackground* topBackground,
         const IFontRepository* fontRepository);
 
     void RefreshStatus();
+    void RefreshTextMode();
 };

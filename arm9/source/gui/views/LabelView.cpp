@@ -7,6 +7,7 @@
 #include "gui/GraphicsContext.h"
 #include "core/StringUtil.h"
 #include "gui/palette/GradientPalette.h"
+#include "GlyphCoverage.h"
 #include "LabelView.h"
 
 #define MARQUEE_START_FRAMES    60
@@ -101,6 +102,12 @@ void LabelView::UpdateTileBuffer()
             nft2_renderString(_font, _textBuffer.get(), _tileBuffer.get(), _actualWidth, &renderParams);
         }
         _newStringWidth = renderParams.textWidth;
+
+        if (!_glyphAntialiasing && !_a5i3)
+        {
+            for (u32 i = 0; i < _tileBufferSize; i++)
+                _tileBuffer[i] = glyph_coverage::QuantizeByte(_tileBuffer[i]);
+        }
     }
     else
     {

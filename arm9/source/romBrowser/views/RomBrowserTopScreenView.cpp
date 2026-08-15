@@ -1,5 +1,4 @@
 #include "common.h"
-#include <array>
 #include <libtwl/mem/memVram.h>
 #include <libtwl/gfx/gfx.h>
 #include <libtwl/gfx/gfxBackground.h>
@@ -9,69 +8,59 @@
 #include "gui/OamBuilder.h"
 #include "gui/OamManager.h"
 #include "gui/palette/DirectPalette.h"
+#include "gui/views/Nft2CoverageRenderer.h"
 #include "../viewModels/RomBrowserViewModel.h"
 #include "rtcIpc.h"
 #include "gui/GraphicsContext.h"
 #include "gui/IVramManager.h"
 #include "gui/VramContext.h"
 #include "themes/IFontRepository.h"
+#include "themes/background/IThemeBackground.h"
 #include "../Theme/IRomBrowserViewFactory.h"
 #include "statusBattery.h"
-#include "statusProfile.h"
 #include "statusSpeaker.h"
 #include "RomBrowserTopScreenView.h"
-
-namespace
-{
-void MakeRailGraphics(std::array<uint8_t, status_bar::RailGraphicsBytes>& graphics)
-{
-    for (uint8_t y = 0; y < 16; y++)
-    {
-        for (uint8_t x = 0; x < 32; x += 2)
-        {
-            uint8_t tile = (y >> 3) * 4 + (x >> 3);
-            uint8_t byteOffset = tile * 32 + (y & 7) * 4 + ((x & 7) >> 1);
-            uint8_t color = status_bar::RailPaletteIndex(x, y);
-            graphics[byteOffset] = color | (color << 4);
-        }
-    }
-}
-}
 
 RomBrowserTopScreenView::RomBrowserTopScreenView(
     SharedPtr<RomBrowserViewModel> viewModel,
     const RomBrowserDisplayMode* displayMode,
     const IThemeFileIconFactory* themeFileIconFactory,
     const IRomBrowserViewFactory* romBrowserViewFactory,
-    const MaterialColorScheme*,
+    const MaterialColorScheme*, IThemeBackground* topBackground,
     const IFontRepository* fontRepository)
     : _viewModel(std::move(viewModel))
     , _themeFileIconFactory(themeFileIconFactory)
+    , _statusFont(fontRepository->GetFont(FontType::Medium9))
     , _fileInfoView(romBrowserViewFactory->CreateFileInfoView())
-    , _centerStatusLabel(Label2DView::CreateShared(64, 16, 11, fontRepository->GetFont(FontType::Medium7_5)))
-    , _batteryStateLabel(Label2DView::CreateShared(24, 16, 4, fontRepository->GetFont(FontType::Medium7_5)))
+    , _centerStatusLabel(Label2DView::CreateShared(64, 16, 11, fontRepository->GetFont(FontType::Medium9)))
+    , _batteryStateLabel(Label2DView::CreateShared(24, 16, 4, fontRepository->GetFont(FontType::Medium9)))
     , _nicknameLabel(Label2DView::CreateShared(status_bar::NicknameTextWidth, 16, 10,
-        fontRepository->GetFont(FontType::Medium7_5)))
+        fontRepository->GetFont(FontType::Medium9)))
+    , _topBackground(topBackground)
+    , _mutableTopBackground(topBackground)
     , _showCover(displayMode->ShowCoverOnTopScreen())
     , _coverPosition(romBrowserViewFactory->GetTopCoverPosition())
 {
     AddChildTail(_fileInfoView.GetPointer());
-    const Rgb<8, 8, 8> railColor{ status_bar::RailColor.r, status_bar::RailColor.g, status_bar::RailColor.b };
-    const Rgb<8, 8, 8> foregroundColor{ status_bar::White.r, status_bar::White.g, status_bar::White.b };
-    const Rgb<8, 8, 8> onlineColor{ status_bar::OnlineBlue.r, status_bar::OnlineBlue.g, status_bar::OnlineBlue.b };
+    const Rgb<8, 8, 8> foregroundColor{
+        status_bar::StatusText.r, status_bar::StatusText.g, status_bar::StatusText.b };
+    const Rgb<8, 8, 8> onlineColor{
+        status_bar::NicknameText.r, status_bar::NicknameText.g, status_bar::NicknameText.b };
     _statusPalette = status_bar::MakeStatusPalette();
     _statusLayout = status_bar::MakeLayout(isDSiMode());
 
     _centerStatusLabel->SetPosition(_statusLayout.dateTime.left, 0);
     _centerStatusLabel->SetHorizontalAlignment(Alignment::Center);
     _centerStatusLabel->SetVerticalAlignment(Alignment::Center);
-    _centerStatusLabel->SetBackgroundColor(railColor);
+    _centerStatusLabel->SetGlyphAntialiasing(false);
+    _centerStatusLabel->SetBackgroundColor(foregroundColor);
     _centerStatusLabel->SetForegroundColor(foregroundColor);
     AddChildTail(_centerStatusLabel.GetPointer());
 
     _batteryStateLabel->SetPosition(_statusLayout.ntrText.left, 0);
     _batteryStateLabel->SetVerticalAlignment(Alignment::Center);
-    _batteryStateLabel->SetBackgroundColor(railColor);
+    _batteryStateLabel->SetGlyphAntialiasing(false);
+    _batteryStateLabel->SetBackgroundColor(foregroundColor);
     _batteryStateLabel->SetForegroundColor(foregroundColor);
     AddChildTail(_batteryStateLabel.GetPointer());
 
@@ -79,7 +68,8 @@ RomBrowserTopScreenView::RomBrowserTopScreenView(
     _nicknameLabel->SetHorizontalAlignment(Alignment::End);
     _nicknameLabel->SetVerticalAlignment(Alignment::Center);
     _nicknameLabel->SetEllipsisStyle(LabelView::EllipsisStyle::Ellipsis);
-    _nicknameLabel->SetBackgroundColor(railColor);
+    _nicknameLabel->SetGlyphAntialiasing(false);
+    _nicknameLabel->SetBackgroundColor(onlineColor);
     _nicknameLabel->SetForegroundColor(onlineColor);
 
     char16_t nickname[11];
@@ -93,7 +83,7 @@ RomBrowserTopScreenView::RomBrowserTopScreenView(
             break;
         }
         nickname[i] = status_bar::NicknameGlyph(character,
-            nft2_findGlyphIdxForCharacter(fontRepository->GetFont(FontType::Medium7_5), character) != 0);
+            nft2_findGlyphIdxForCharacter(fontRepository->GetFont(FontType::Medium9), character) != 0);
     }
     nickname[nicknameLength] = 0;
     _nicknameLabel->SetText(nickname, nicknameLength);
@@ -112,10 +102,8 @@ void RomBrowserTopScreenView::InitVram(const VramContext& vramContext)
             _statusGraphicsOffset = offset;
             _statusGraphicsAddress = objVramManager->GetVramAddress(offset);
             _statusGraphicsReady = status_bar::StatusGraphicsWritable(offset, _statusGraphicsAddress != nullptr);
-            _railGraphicsDirty = _statusGraphicsReady;
             _speakerGraphicsDirty = _statusGraphicsReady;
             _batteryGraphicsDirty = _statusGraphicsReady;
-            _profileGraphicsDirty = _statusGraphicsReady;
         }
     }
 
@@ -216,6 +204,9 @@ void RomBrowserTopScreenView::RefreshStatus()
         _batteryGraphicsDirty = _statusGraphicsReady;
     _statusPresentation = presentation;
     _statusLayout = status_bar::MakeLayout(snapshot.dsiMode);
+    const auto nicknameWidth = _nicknameLabel->GetRenderedStringWidth();
+    _statusLayout.battery = status_bar::MakeBatteryBounds(snapshot.dsiMode, nicknameWidth);
+    _statusLayout.fallbackBatteryState = status_bar::MakeBatteryStateBounds(snapshot.dsiMode, nicknameWidth);
     _centerStatusLabel->SetPosition((_statusGraphicsReady ? _statusLayout.dateTime : _statusLayout.fallbackDateTime).left, 0);
     _batteryStateLabel->SetPosition(
         (_statusGraphicsReady && presentation.ntrBattery ? _statusLayout.ntrText : _statusLayout.fallbackBatteryState).left, 0);
@@ -233,59 +224,100 @@ void RomBrowserTopScreenView::RefreshStatus()
         _batteryStateText = batteryStateText;
         _batteryStateLabel->SetText(_batteryStateText.data());
     }
+    RefreshTextMode();
+}
+
+void RomBrowserTopScreenView::RefreshTextMode()
+{
+    const auto backgroundMode = _topBackground ? _topBackground->GetStatusPresentationMode()
+                                               : status_background::StatusPresentationMode::Unsupported;
+    if (backgroundMode == status_background::StatusPresentationMode::ComposedBackground && _statusGraphicsReady)
+    {
+        _mutableTopBackground->RestoreStatusStrip();
+        const auto compose = [this](const char16_t* text, const status_bar::Bounds& bounds, uint16_t foreground, bool ellipsis)
+        {
+            const auto width = static_cast<uint32_t>(bounds.right - bounds.left);
+            auto coverage = std::span<uint8_t>(_statusCoverage).first(width * status_bar::StatusHeight);
+            Nft2CoverageRenderer::Render(_statusFont, text, coverage,
+                bounds.right - bounds.left, status_bar::StatusHeight, 0,
+                status_bar::StatusTextBaseline(status_bar::StatusTextFontMetrics(), status_bar::StatusHeight), ellipsis);
+            return _mutableTopBackground->PrepareStatusStrip({ {}, {}, coverage, bounds.left, 0,
+                bounds.right - bounds.left, status_bar::StatusHeight, foreground, false }).state == status_strip::CompositionState::Composed;
+        };
+        std::fill(_statusCoverage.begin(), _statusCoverage.end(), 0);
+        const bool center = compose(_centerStatusLabel->GetText(), _statusLayout.dateTime,
+            status_bar::ToRgb555(status_bar::StatusText), false);
+        const bool battery = !_statusPresentation.ntrBattery || compose(_batteryStateLabel->GetText(), _statusLayout.ntrText,
+            status_bar::ToRgb555(status_bar::StatusText), false);
+        const bool nickname = compose(_nicknameLabel->GetText(), _statusLayout.nickname,
+            status_bar::ToRgb555(status_bar::NicknameText), true);
+        const bool composed = center && battery && nickname;
+        _textMode = status_bar::StatusTextMode(_statusGraphicsReady, composed, false);
+        if (status_bar::StatusTextRequiresPristineRestore(true, composed))
+            _mutableTopBackground->RestoreStatusStrip();
+    }
+    else if (backgroundMode == status_background::StatusPresentationMode::UniformObject && _statusGraphicsReady)
+    {
+        const auto endpoint = _topBackground->GetStatusPaletteEndpoint();
+        const auto statusPalette = status_bar::MakeCoveragePalette(endpoint, status_bar::ToRgb555(status_bar::StatusText));
+        const auto nicknamePalette = status_bar::MakeCoveragePalette(endpoint, status_bar::ToRgb555(status_bar::NicknameText));
+        std::copy(statusPalette.begin(), statusPalette.end(), _materialStatusPalettes.begin());
+        std::copy(nicknamePalette.begin(), nicknamePalette.end(), _materialStatusPalettes.begin() + 16);
+        _centerStatusLabel->SetDirectPalette(_materialStatusPalettes.data());
+        _batteryStateLabel->SetDirectPalette(_materialStatusPalettes.data());
+        _nicknameLabel->SetDirectPalette(_materialStatusPalettes.data() + 16);
+        _textMode = status_bar::StatusTextMode(_statusGraphicsReady, false, true);
+    }
+    else
+    {
+        if (_mutableTopBackground)
+            _mutableTopBackground->RestoreStatusStrip();
+        _textMode = status_bar::StatusTextMode(_statusGraphicsReady, false, false);
+    }
+    if (_textMode == status_bar::TextMode::BinaryFallback)
+    {
+        _centerStatusLabel->SetDirectPalette(nullptr);
+        _batteryStateLabel->SetDirectPalette(nullptr);
+        _nicknameLabel->SetDirectPalette(nullptr);
+    }
+    const bool antialias = _textMode != status_bar::TextMode::BinaryFallback;
+    _centerStatusLabel->SetGlyphAntialiasing(antialias);
+    _batteryStateLabel->SetGlyphAntialiasing(antialias);
+    _nicknameLabel->SetGlyphAntialiasing(antialias);
 }
 
 void RomBrowserTopScreenView::Draw(GraphicsContext& graphicsContext)
 {
     _fileInfoView->Draw(graphicsContext);
-    if (_statusGraphicsReady)
+    if (_textMode != status_bar::TextMode::Composed && _statusGraphicsReady)
     {
-        u32 paletteRow = graphicsContext.GetPaletteManager().AllocRow(
-            DirectPalette(_statusPalette.data()), 0, 15);
-        auto railOams = graphicsContext.GetOamManager().AllocOams(status_bar::RailOamEntries);
-        for (uint8_t index = 0; index < status_bar::RailOamEntries; index++)
-        {
-            OamBuilder::OamWithSize<32, 16>(index * 32, 0,
-                (_statusGraphicsOffset + status_bar::RailGraphicsOffset) >> 7)
-                .WithPalette16(paletteRow)
-                .WithPriority(graphicsContext.GetPriority())
-                .Build(railOams[index]);
-        }
-
         _centerStatusLabel->Draw(graphicsContext);
         if (_statusPresentation.ntrBattery)
             _batteryStateLabel->Draw(graphicsContext);
         _nicknameLabel->Draw(graphicsContext);
 
+    }
+    else if (_textMode != status_bar::TextMode::Composed)
+    {
+        _centerStatusLabel->Draw(graphicsContext);
+        _batteryStateLabel->Draw(graphicsContext);
+        _nicknameLabel->Draw(graphicsContext);
+    }
+    if (status_bar::StatusIconsVisible(_textMode, _statusGraphicsReady))
+    {
+        u32 paletteRow = graphicsContext.GetPaletteManager().AllocRow(DirectPalette(_statusPalette.data()), 0, 15);
         if (_statusPresentation.volumeVisible)
         {
             auto speaker = graphicsContext.GetOamManager().AllocOams(1);
             OamBuilder::OamWithSize<16, 16>(_statusLayout.speaker.left, _statusLayout.speaker.top,
                 (_statusGraphicsOffset + status_bar::SpeakerGraphicsOffset +
                     _statusPresentation.speakerFrame * status_bar::SpeakerFrameBytes) >> 7)
-                .WithPalette16(paletteRow)
-                .WithPriority(graphicsContext.GetPriority())
-                .Build(speaker[0]);
+                .WithPalette16(paletteRow).WithPriority(graphicsContext.GetPriority()).Build(speaker[0]);
         }
         auto battery = graphicsContext.GetOamManager().AllocOams(1);
-        OamBuilder::OamWithSize<16, 8>(
-            _statusLayout.battery.left, _statusLayout.battery.top,
+        OamBuilder::OamWithSize<16, 8>(_statusLayout.battery.left, _statusLayout.battery.top,
             (_statusGraphicsOffset + status_bar::BatteryGraphicsOffset) >> 7)
-            .WithPalette16(paletteRow)
-            .WithPriority(graphicsContext.GetPriority())
-            .Build(battery[0]);
-        auto profile = graphicsContext.GetOamManager().AllocOams(1);
-        OamBuilder::OamWithSize<16, 16>(_statusLayout.profileAvatar.left, _statusLayout.profileAvatar.top,
-            (_statusGraphicsOffset + status_bar::ProfileGraphicsOffset) >> 7)
-            .WithPalette16(paletteRow)
-            .WithPriority(graphicsContext.GetPriority())
-            .Build(profile[0]);
-    }
-    else
-    {
-        _centerStatusLabel->Draw(graphicsContext);
-        _batteryStateLabel->Draw(graphicsContext);
-        _nicknameLabel->Draw(graphicsContext);
+            .WithPalette16(paletteRow).WithPriority(graphicsContext.GetPriority()).Build(battery[0]);
     }
 }
 
@@ -296,13 +328,6 @@ void RomBrowserTopScreenView::VBlank()
     if (_statusGraphicsReady)
     {
         auto graphics = (volatile uint8_t*)_statusGraphicsAddress;
-        if (_railGraphicsDirty)
-        {
-            std::array<uint8_t, status_bar::RailGraphicsBytes> rail{};
-            MakeRailGraphics(rail);
-            memcpy((void*)(graphics + status_bar::RailGraphicsOffset), rail.data(), rail.size());
-            _railGraphicsDirty = false;
-        }
         if (_speakerGraphicsDirty)
         {
             memcpy((void*)(graphics + status_bar::SpeakerGraphicsOffset), statusSpeakerTiles,
@@ -316,13 +341,6 @@ void RomBrowserTopScreenView::VBlank()
                 batteryTiles + _statusPresentation.batteryFrame * status_bar::BatteryFrameBytes,
                 status_bar::BatteryFrameBytes);
             _batteryGraphicsDirty = false;
-        }
-        if (_profileGraphicsDirty)
-        {
-            const auto* profileTiles = (const uint8_t*)statusProfileTiles;
-            memcpy((void*)(graphics + status_bar::ProfileGraphicsOffset),
-                profileTiles, statusProfileTilesLen);
-            _profileGraphicsDirty = false;
         }
     }
 
