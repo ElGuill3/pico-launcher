@@ -1,10 +1,6 @@
-# DSteam Status Bar Presentation Specification
+# Delta for dsteam-status-bar-presentation
 
-## Purpose
-
-Define the theme-owned DSteam status presentation on the ROM-browser top screen.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Fixed Opaque Rail
 
@@ -12,43 +8,14 @@ The system MUST NOT render a fixed rail, profile placeholder, separator, or samp
 (Previously: y=0..15 was replaced by an opaque fixed RGB rail.)
 
 #### Scenario: Theme pixels survive composition
-
 - GIVEN a custom theme with arbitrary RGB555 top-strip pixels
 - WHEN status text is composed
 - THEN pixels outside glyph coverage are unchanged and no rail or profile placeholder appears
 
 #### Scenario: Unsupported representation
-
 - GIVEN the background cannot satisfy the composition contract
 - WHEN status presentation refreshes
 - THEN the theme is not replaced by a guessed backing color and truthful binary OBJ text is used
-
-### Requirement: Truthful White Status Indicators
-
-The system MUST render the speaker icon and date/time in white. It MUST render a white battery outline with filled DSi battery state exactly `#6fdc50`. DSi state MUST show 0..4 segments and charging independently; NTR state MUST show `HIGH` above its existing threshold or `LOW` otherwise. The system MUST NOT show a battery percentage.
-
-#### Scenario: DSi battery and charging state
-
-- GIVEN each DSi segment level with charging enabled or disabled
-- WHEN the center group is rendered
-- THEN it shows the matching green fill, white outline, and independent charging state
-
-#### Scenario: NTR battery state
-
-- GIVEN NTR battery input above or at/below the low threshold
-- WHEN the center group is rendered
-- THEN it shows the white outline with `HIGH` or `LOW` and no percentage
-
-### Requirement: Valid Volume Presentation
-
-The system MUST show a white speaker with one of four dynamic volume frames if and only if DSi mode and `VOLUME_VALID` are true. It MUST clamp valid volume input to 0..31 before selecting the frame and MUST hide the speaker when volume is invalid, unavailable, or in NTR mode. The final presentation MUST NOT render a numeric volume value.
-
-#### Scenario: Volume bounds and absence
-
-- GIVEN valid out-of-range volume or invalid volume
-- WHEN the left group is mapped
-- THEN valid volume is clamped to 0..31 and mapped to the corresponding dynamic speaker frame
-- AND invalid volume renders no speaker
 
 ### Requirement: Profile Treatment and Collision-Free Composition
 
@@ -56,19 +23,16 @@ The system MUST compose date/time, NTR `HIGH`/`LOW`, and nickname with full NFT2
 (Previously: A square profile tile and blue nickname were rendered over a fixed rail.)
 
 #### Scenario: Coverage and nickname bounds
-
 - GIVEN supported date/time, NTR state, and nickname text
 - WHEN the strip is composed
 - THEN full glyph coverage is applied and nickname writes remain within `[190,256)`
 
 #### Scenario: Nickname shortening
-
 - GIVEN an unsupported glyph or overlong nickname
 - WHEN the nickname is mapped
-- THEN a visible fallback or ellipsis remains without moving neighboring bounds
+- THEN the visible fallback or ellipsis remains without moving neighboring bounds
 
 #### Scenario: Readable centered status text
-
 - GIVEN the selected status font and the 16-pixel strip
 - WHEN date/time, NTR fallback, or nickname is rendered
 - THEN its baseline is derived from that font's ascend/descend metrics and its ink remains within y=0..15
@@ -79,13 +43,11 @@ The system MUST expose host-testable composition, palette, geometry, state, and 
 (Previously: Fixed rail/profile allocation was the composition backing and fallback covered allocation failure only.)
 
 #### Scenario: Text changes recompose cleanly
-
 - GIVEN a pristine strip with previously composed text
 - WHEN the minute, nickname, or NTR state changes
 - THEN pristine pixels are restored before composition and no old glyph remains
 
 #### Scenario: Material guard and failure
-
 - GIVEN uniform material BG0 or an unsupported representation
 - WHEN composition is attempted
 - THEN uniform material uses its exact endpoint, while unsupported input selects truthful binary OBJ fallback
@@ -96,13 +58,15 @@ Speaker/battery rendering, status acquisition, polling, fallback, browser behavi
 (Previously: lifecycle and timing were not composition contracts.)
 
 #### Scenario: Host and limited physical acceptance
-
 - GIVEN host contracts, a built launcher, and maintainer-selected limited physical scope
 - WHEN evidence is recorded for the final observed configuration
 - THEN clipping, restoration, fallback, lifecycle, invariant, and build evidence are proven
 - AND the final observed layout is accepted only with covers active
 - AND the original 5×4 matrix remains **NOT EXECUTED** and **NOT PASSED**, with archive evidence declaring the intentional limited-scope close
 
-## Release Evidence Caveat
+## REMOVED Requirements
 
-Physical acceptance is intentionally limited to the final observed covers-active configuration; the original 5×4/20-cell matrix remains **NOT EXECUTED** and **NOT PASSED**. The previously installed and physically accepted ROM is 542208 bytes with SHA-256 `23699aefafdd6d0b8691e8b9017898e2d431b1e517ac5334768c027ba9b5c73e`. The fresh post-remediation ROM is 542208 bytes with SHA-256 `54dd7628b76a03df312a54125ebc627b5fdc448eb292d32016adc1b8180da585`; it was independently built but was not installed or physically accepted. Exact rebuild-byte identity is therefore not claimed for the accepted configuration.
+### Requirement: Fixed Rail and Profile Placeholder
+
+(Reason: Theme-owned composition replaces opaque rail and profile placeholder behavior.)
+(Migration: Use the modified composition and nickname requirements.)

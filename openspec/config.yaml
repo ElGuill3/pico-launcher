@@ -1,0 +1,55 @@
+schema: spec-driven
+
+context: |
+  Tech stack: C++23 Nintendo DS/DSi homebrew built with BlocksDS v1.16.0 and Make.
+  Architecture: ARM7/ARM9 launcher with shared IPC payloads, theme-driven rendering, and host-testable pure formatting helpers.
+  Testing: Strict TDD enabled; focused C++23 host tests, Python unittest coverage for tools, and a containerized BlocksDS build.
+  Style: Existing C++ conventions, 256x192 display constraints, English technical artifacts, and RDD review gates.
+
+strict_tdd: true
+
+testing:
+  strict_tdd: true
+  test_command: "g++ -std=c++23 -Wall -Wextra -Wpedantic -Iarm9/source tests/status_bar_format_tests.cpp -o /tmp/pico-launcher-status-bar-format-tests && /tmp/pico-launcher-status-bar-format-tests"
+  python_command: "python3 -m unittest discover -s tests -p 'test_*.py'"
+  build_command: "make"
+  build_environment: "skylyrac/blocksds:slim-v1.16.0"
+  coverage: false
+  linter: false
+  type_checker: false
+  formatter: false
+
+artifact_store:
+  mode: hybrid
+
+delivery:
+  strategy: auto-chain
+  review_budget_lines: 800
+
+rdd:
+  enabled: true
+
+rules:
+  proposal:
+    - Define the visual scope without changing the already-validated functional status payload.
+    - Include rollback considerations for embedded rendering or asset changes.
+  specs:
+    - Use Given/When/Then scenarios.
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY).
+  design:
+    - Respect the 256x192 Nintendo DS display and existing theme/font constraints.
+    - Document architecture decisions with rationale.
+  tasks:
+    - Group work by reviewable phase and keep tasks independently verifiable.
+  apply:
+    guidelines:
+      - Preserve unrelated source and existing .atl modifications.
+      - Follow existing C++ and RDD conventions.
+    tdd: true
+    test_command: "g++ -std=c++23 -Wall -Wextra -Wpedantic -Iarm9/source tests/status_bar_format_tests.cpp -o /tmp/pico-launcher-status-bar-format-tests && /tmp/pico-launcher-status-bar-format-tests"
+  verify:
+    test_command: "g++ -std=c++23 -Wall -Wextra -Wpedantic -Iarm9/source tests/status_bar_format_tests.cpp -o /tmp/pico-launcher-status-bar-format-tests && /tmp/pico-launcher-status-bar-format-tests"
+    build_command: "make"
+    coverage_threshold: 0
+  archive:
+    - Warn before merging destructive deltas.
