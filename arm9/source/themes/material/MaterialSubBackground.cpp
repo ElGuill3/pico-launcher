@@ -6,11 +6,24 @@
 #include "mainBg.h"
 #include "MaterialSubBackground.h"
 
+namespace
+{
+constexpr size_t MaterialMapEntries = 32 * 32;
+}
+
 void MaterialSubBackground::LoadResources(const ITheme& theme, const VramContext& vramContext)
 {
     mem_setVramHMapping(MEM_VRAM_H_LCDC);
     RgbMixer::MakeGradientPalette((u16*)0x06898020,
         _materialColorScheme->inverseOnSurface, _materialColorScheme->secondaryContainer);
+    RgbMixer::MakeGradientPalette(_statusPalette.data() + 16,
+        _materialColorScheme->inverseOnSurface, _materialColorScheme->secondaryContainer);
+    _statusPalette[16] = ((const u16*)0x06898020)[0];
+    _statusSupported = status_background::HasUniformMaterialTopStrip(
+        std::span<const uint16_t>(mainBgMap, MaterialMapEntries),
+        status_background::MaterialTileBytes(mainBgTiles));
+    if (_statusSupported)
+        _statusPalette[16] = status_background::MaterialPaletteEndpoint(_statusPalette[16]);
     mem_setVramHMapping(MEM_VRAM_H_SUB_BG_EXT_PLTT_SLOT_0123);
     dma_ntrCopy32(3, mainBgTiles, (vu8*)BG_GFX_SUB + 0x8000, mainBgTilesLen);
     dma_ntrCopy32(3, mainBgMap, (vu8*)BG_GFX_SUB + 0x8800, mainBgMapLen);
