@@ -43,7 +43,7 @@ void SettingsProcess::Run()
     LoadTheme();
 
     _settingsController = std::make_unique<SettingsController>(
-        &_appSettingsService, &_ioTaskQueue, &_backCommittedSignal);
+        &_appSettingsService, &_ioTaskQueue, &_backCommittedSignal, &_selectCommittedSignal);
     _settingsController->Initialize();
 
     auto viewModel = SharedPtr<ThemeListViewModel>::MakeShared(_settingsController.get());
@@ -101,6 +101,7 @@ void SettingsProcess::Run()
 
     MainLoop();
 
+    _selectSoundPlayer.Stop();
     _backSoundPlayer.Stop();
     rtos_disableIrqMask(RTOS_IRQ_VCOUNT);
     rtos_setIrqFunc(RTOS_IRQ_VCOUNT, nullptr);
@@ -141,6 +142,7 @@ void SettingsProcess::LoadTheme()
     // _topBackground->LoadResources(*_theme, _subVramContext);
     _bottomBackground = _theme->CreateRomBrowserBottomBackground();
     _bottomBackground->LoadResources(*_theme, _mainVramContext);
+    _selectSoundPlayer.Load(*_theme, "sounds/select.wav");
     _backSoundPlayer.Load(*_theme, "sounds/back.wav");
 }
 
@@ -189,8 +191,19 @@ void SettingsProcess::Update()
     {
         HandleInput();
     }
-    if (_backCommittedSignal.Consume())
-        _backSoundPlayer.Play();
+    switch (ResolveUiSound(_backCommittedSignal.Consume(),
+        _selectCommittedSignal.Consume(), false))
+    {
+        case UiSound::Back:
+            _backSoundPlayer.Play();
+            break;
+        case UiSound::Select:
+            _selectSoundPlayer.Play();
+            break;
+        case UiSound::Navigation:
+        case UiSound::None:
+            break;
+    }
 
     // if (_topBackground)
     // {

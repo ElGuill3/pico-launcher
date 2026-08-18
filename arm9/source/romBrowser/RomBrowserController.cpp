@@ -14,11 +14,13 @@
 
 RomBrowserController::RomBrowserController(
     IAppSettingsService* appSettingsService, TaskQueueBase* ioTaskQueue,
-    TaskQueueBase* bgTaskQueue, BackCommittedSignal* backCommittedSignal)
+    TaskQueueBase* bgTaskQueue, BackCommittedSignal* backCommittedSignal,
+    SelectCommittedSignal* selectCommittedSignal)
     : _appSettingsService(appSettingsService)
     , _ioTaskQueue(ioTaskQueue), _bgTaskQueue(bgTaskQueue)
     , _fileTypeProvider(appSettingsService->GetAppSettings())
-    , _backCommittedSignal(backCommittedSignal) { }
+    , _backCommittedSignal(backCommittedSignal)
+    , _selectCommittedSignal(selectCommittedSignal) { }
 
 void RomBrowserController::NavigateToPath(const TCHAR* name)
 {
@@ -114,6 +116,8 @@ void RomBrowserController::Update()
                 _launchPreparationState = _launchTask.GetTask().IsCompletedSuccessfully()
                     ? LaunchPreparationState::Ready
                     : LaunchPreparationState::Failed;
+                _selectCommittedSignal->CommitLaunchReady(
+                    _launchPreparationState == LaunchPreparationState::Ready);
                 _launchTask.Dispose();
                 if (_launchPreparationState == LaunchPreparationState::Failed)
                     _stateMachine.Fire(RomBrowserStateTrigger::LaunchFailed);
@@ -147,6 +151,11 @@ void RomBrowserController::HandleTrigger()
             HandleChangeDisplayModeTrigger();
             break;
 
+        case RomBrowserStateTrigger::ShowGameInfo:
+        case RomBrowserStateTrigger::ShowDisplaySettings:
+            _selectCommittedSignal->Commit(SelectTransition::Accepted);
+            break;
+
         case RomBrowserStateTrigger::GotoSettingsScreen:
             HandleGotoSettingsScreenTrigger();
             break;
@@ -161,6 +170,9 @@ void RomBrowserController::HandleNavigateTrigger()
     LOG_DEBUG("RomBrowserStateTrigger::Navigate\n");
     const bool requestedBack = strcmp(_navigatePath, "..") == 0;
     _folderBackRequested = requestedBack;
+    _folderSelectRequested = !requestedBack &&
+        _stateMachine.GetPreviousState() == RomBrowserState::Browser;
+    _folderTargetResolved = false;
     _folderChdirSucceeded = false;
     _folderDirectoryChanged = false;
     _navigateTask = _ioTaskQueue->Enqueue([this] (const vu8& cancelRequested)
@@ -192,10 +204,12 @@ void RomBrowserController::HandleNavigateTrigger()
 
         u64 startTick = gTickCounter.GetValue();
         _navigateFileName = nullptr;
-        if (strcmp(_navigatePath, "/") != 0) // can't f_stat on root dir
+        _folderTargetResolved = strcmp(_navigatePath, "/") == 0; // can't f_stat on root dir
+        if (!_folderTargetResolved)
         {
             FILINFO fileInfo;
-            if (f_stat(_navigatePath, &fileInfo) != FR_OK)
+            _folderTargetResolved = f_stat(_navigatePath, &fileInfo) == FR_OK;
+            if (!_folderTargetResolved)
             {
                 StringUtil::Copy(_navigatePath, "/", sizeof(_navigatePath) / sizeof(_navigatePath[0]));
             }
@@ -226,6 +240,9 @@ void RomBrowserController::HandleFolderLoadDoneTrigger()
     LOG_DEBUG("RomBrowserStateTrigger::FolderLoadDone\n");
     _backCommittedSignal->CommitFolderBack(
         _folderBackRequested, _folderChdirSucceeded, _folderDirectoryChanged);
+    _selectCommittedSignal->CommitFolderEntry(
+        _folderSelectRequested, _folderTargetResolved, _folderChdirSucceeded,
+        _folderDirectoryChanged, static_cast<bool>(_newSdFolder));
     _romBrowserViewModel.Reset();
     _sdFolder = std::move(_newSdFolder);
     _romBrowserViewModel = SharedPtr<RomBrowserViewModel>::MakeShared(this, _navigateFileName);
@@ -254,11 +271,13 @@ void RomBrowserController::HandleLaunchTrigger()
 void RomBrowserController::HandleChangeDisplayModeTrigger()
 {
     LOG_DEBUG("RomBrowserStateTrigger::ChangeDisplayMode\n");
+    _selectCommittedSignal->Commit(SelectTransition::Accepted);
     _romBrowserViewModel = SharedPtr<RomBrowserViewModel>::MakeShared(this);
 }
 
 void RomBrowserController::HandleGotoSettingsScreenTrigger()
 {
+    _selectCommittedSignal->Commit(SelectTransition::Accepted);
     gProcessManager.Goto<SettingsProcess>();
 }
 

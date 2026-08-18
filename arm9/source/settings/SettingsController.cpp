@@ -3,9 +3,11 @@
 #include "SettingsController.h"
 
 SettingsController::SettingsController(IAppSettingsService* appSettingsService,
-    TaskQueueBase* ioTaskQueue, BackCommittedSignal* backCommittedSignal)
+    TaskQueueBase* ioTaskQueue, BackCommittedSignal* backCommittedSignal,
+    SelectCommittedSignal* selectCommittedSignal)
     : _appSettingsService(appSettingsService), _ioTaskQueue(ioTaskQueue)
-    , _backCommittedSignal(backCommittedSignal) { }
+    , _backCommittedSignal(backCommittedSignal)
+    , _selectCommittedSignal(selectCommittedSignal) { }
 
 void SettingsController::Initialize()
 {
@@ -21,7 +23,7 @@ void SettingsController::NavigateUp()
 
 void SettingsController::SelectTheme(const char* themeFolderName)
 {
-    _backCommittedSignal->CommitSettings(SettingsTransition::SelectTheme);
+    _selectCommittedSignal->Commit(SelectTransition::Accepted);
     _appSettingsService->GetAppSettings().theme = themeFolderName;
     _ioTaskQueue->Enqueue([this] (const vu8& cancelRequested)
     {

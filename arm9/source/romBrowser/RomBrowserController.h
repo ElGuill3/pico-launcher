@@ -13,6 +13,7 @@
 #include "services/settings/IAppSettingsService.h"
 #include "cheats/ICheatRepository.h"
 #include "BackCommittedSignal.h"
+#include "SelectCommittedSignal.h"
 
 class RomBrowserController : public IRomBrowserController
 {
@@ -27,7 +28,7 @@ public:
 
     RomBrowserController(IAppSettingsService* appSettingsService,
         TaskQueueBase* ioTaskQueue, TaskQueueBase* bgTaskQueue,
-        BackCommittedSignal* backCommittedSignal);
+        BackCommittedSignal* backCommittedSignal, SelectCommittedSignal* selectCommittedSignal);
 
     void NavigateUp() override
     {
@@ -86,6 +87,8 @@ private:
     bool _launchTransferRequested = false;
     bool _saveSettingsPending = false;
     bool _folderBackRequested = false;
+    bool _folderSelectRequested = false;
+    bool _folderTargetResolved = false;
     bool _folderChdirSucceeded = false;
     bool _folderDirectoryChanged = false;
     std::unique_ptr<CoverRepository> _coverRepository;
@@ -94,6 +97,7 @@ private:
     ExtensionFileTypeProvider _fileTypeProvider;
     std::unique_ptr<ICheatRepository> _cheatRepository;
     BackCommittedSignal* _backCommittedSignal;
+    SelectCommittedSignal* _selectCommittedSignal;
 
     void HandleTrigger();
     void HandleNavigateTrigger();

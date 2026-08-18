@@ -6,6 +6,7 @@
 #include "romBrowser/FileInfo.h"
 #include "romBrowser/IRomBrowserController.h"
 #include "BackCommittedSignal.h"
+#include "SelectCommittedSignal.h"
 
 /// @brief View model for the cheats screen.
 class CheatsViewModel
@@ -25,7 +26,7 @@ public:
     };
 
     CheatsViewModel(const FileInfo& romFileInfo, IRomBrowserController* romBrowserController,
-        BackCommittedSignal* backCommittedSignal);
+        BackCommittedSignal* backCommittedSignal, SelectCommittedSignal* selectCommittedSignal);
 
     /// @brief Activates the cheat or category at the specified \p index.
     void ActivateItem(int index);
@@ -73,6 +74,7 @@ private:
     FileInfo _romFileInfo;
     IRomBrowserController* _romBrowserController;
     BackCommittedSignal* _backCommittedSignal;
+    SelectCommittedSignal* _selectCommittedSignal;
     QueueTask<void> _loadCheatsTask;
     std::unique_ptr<GameCheats> _cheats;
     State _state = State::Loading;
@@ -81,5 +83,5 @@ private:
     u32 _categoryStackLevel = 0;
     std::array<CategoryStackEntry, 8> _categoryStack;
 
-    void DisableAllCheats(const CheatEntry* cheatCategory);
+    bool DisableAllCheats(const CheatEntry* cheatCategory);
 };

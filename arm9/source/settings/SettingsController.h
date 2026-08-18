@@ -3,6 +3,7 @@
 #include "ThemeInfoManager.h"
 #include "themes/ThemeRepository.h"
 #include "BackCommittedSignal.h"
+#include "SelectCommittedSignal.h"
 
 class IAppSettingsService;
 
@@ -10,7 +11,7 @@ class SettingsController : public ISettingsController
 {
 public:
     SettingsController(IAppSettingsService* appSettingsService, TaskQueueBase* ioTaskQueue,
-        BackCommittedSignal* backCommittedSignal);
+        BackCommittedSignal* backCommittedSignal, SelectCommittedSignal* selectCommittedSignal);
 
     void Initialize() override;
     void NavigateUp() override;
@@ -24,6 +25,7 @@ private:
     IAppSettingsService* _appSettingsService;
     TaskQueueBase* _ioTaskQueue;
     BackCommittedSignal* _backCommittedSignal;
+    SelectCommittedSignal* _selectCommittedSignal;
     ThemeRepository _themeRepository;
     std::unique_ptr<ThemeInfoManager> _themeInfoManager;
 };

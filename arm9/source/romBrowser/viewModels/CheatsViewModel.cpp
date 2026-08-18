@@ -4,9 +4,11 @@
 #include "CheatsViewModel.h"
 
 CheatsViewModel::CheatsViewModel(const FileInfo& romFileInfo,
-    IRomBrowserController* romBrowserController, BackCommittedSignal* backCommittedSignal)
+    IRomBrowserController* romBrowserController, BackCommittedSignal* backCommittedSignal,
+    SelectCommittedSignal* selectCommittedSignal)
     : _romFileInfo(romFileInfo), _romBrowserController(romBrowserController)
     , _backCommittedSignal(backCommittedSignal)
+    , _selectCommittedSignal(selectCommittedSignal)
 {
     _categoryStack.fill({ nullptr, 0 });
     _loadCheatsTask = _romBrowserController->GetIoTaskQueue()->Enqueue([this] (const vu8& cancelRequested)
@@ -52,6 +54,7 @@ void CheatsViewModel::ActivateItem(int index)
         {
             _categoryStack[++_categoryStackLevel] = { &entry, (u32)index };
             _selectedItem = 0;
+            _selectCommittedSignal->CommitCheatMutation(true);
         }
     }
     else
@@ -70,6 +73,7 @@ void CheatsViewModel::ActivateItem(int index)
         }
         entry.SetIsCheatActive(isEnabled);
         _changed = true;
+        _selectCommittedSignal->CommitCheatMutation(true);
     }
 }
 
@@ -111,12 +115,13 @@ void CheatsViewModel::DisableAllCheats()
 {
     if (_state == State::DisplayCheats)
     {
-        DisableAllCheats(_cheats.get());
+        _selectCommittedSignal->CommitCheatMutation(DisableAllCheats(_cheats.get()));
     }
 }
 
-void CheatsViewModel::DisableAllCheats(const CheatEntry* cheatCategory)
+bool CheatsViewModel::DisableAllCheats(const CheatEntry* cheatCategory)
 {
+    bool changed = false;
     u32 numberOfSubEntries = 0;
     auto subEntries = cheatCategory->GetSubEntries(numberOfSubEntries);
     for (u32 i = 0; i < numberOfSubEntries; i++)
@@ -124,7 +129,7 @@ void CheatsViewModel::DisableAllCheats(const CheatEntry* cheatCategory)
         auto& entry = subEntries[i];
         if (entry.IsCheatCategory())
         {
-            DisableAllCheats(&entry);
+            changed = DisableAllCheats(&entry) || changed;
         }
         else
         {
@@ -132,7 +137,9 @@ void CheatsViewModel::DisableAllCheats(const CheatEntry* cheatCategory)
             {
                 entry.SetIsCheatActive(false);
                 _changed = true;
+                changed = true;
             }
         }
     }
+    return changed;
 }

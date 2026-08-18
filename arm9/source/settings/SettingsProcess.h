@@ -23,6 +23,7 @@
 #include "services/settings/IAppSettingsService.h"
 #include "bgm/ThemeSoundPlayer.h"
 #include "BackCommittedSignal.h"
+#include "SelectCommittedSignal.h"
 
 class SettingsController;
 
@@ -55,8 +56,10 @@ private:
     std::unique_ptr<ITheme> _theme;
     std::unique_ptr<IThemeBackground> _topBackground;
     std::unique_ptr<IThemeBackground> _bottomBackground;
+    ThemeSoundPlayer _selectSoundPlayer;
     ThemeSoundPlayer _backSoundPlayer;
     BackCommittedSignal _backCommittedSignal;
+    SelectCommittedSignal _selectCommittedSignal;
 
     IAppSettingsService& _appSettingsService;
     volatile bool _exit = false;
